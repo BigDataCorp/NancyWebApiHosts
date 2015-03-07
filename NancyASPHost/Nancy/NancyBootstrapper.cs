@@ -15,6 +15,8 @@ namespace NancyASPHost
 
         static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger ();
 
+        static bool enableAuthentication = false;
+
         static NancyBootstrapper()
         {
             
@@ -53,7 +55,7 @@ namespace NancyASPHost
             // log any errors
             pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
             {
-                logger.Debug (ex);
+                logger.Error (ex);
                 return null;
             });
 
@@ -73,8 +75,8 @@ namespace NancyASPHost
             });
 
             // global authentication
-            if (SystemGlobals.Options.Get ("EnableAuthentication", false))
-                pipelines.BeforeRequest.AddItemToStartOfPipeline (AllResourcesAuthentication);
+            enableAuthentication = SystemGlobals.Options.Get ("EnableAuthentication", false);
+            pipelines.BeforeRequest.AddItemToStartOfPipeline (AllResourcesAuthentication);
 
             // gzip compression            
             pipelines.AfterRequest.AddItemToEndOfPipeline (NancyCompressionExtenstion.CheckForCompression);
@@ -129,6 +131,8 @@ namespace NancyASPHost
             }
 
             // analise if we got an authenticated user
+            if (!enableAuthentication)
+                return null;
             return (ctx.CurrentUser == null) ? new Nancy.Responses.HtmlResponse (HttpStatusCode.Unauthorized) : null;
         }
 
