@@ -139,7 +139,7 @@ namespace NancyHostLib
                 var login = TryGetRequestParameter (ctx, "login");
                 if (!String.IsNullOrEmpty (password) && !String.IsNullOrEmpty (login))
                 {
-                    user = accessControlContext.OpenSession (login, password, 10);
+                    user = accessControlContext.OpenSession (login, password, 60);
                     if (user.Result)
                         ctx.CurrentUser = new UserIdentityModel (user.UserInfo.SessionId, user.UserInfo);
                 }
