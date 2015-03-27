@@ -7,8 +7,15 @@ Two modes:
 2. windows service
 
 ## Self Host Windows Configuration
+
 `netsh http add urlacl url=http://+:8080/nancyselfhost user=DOMAIN\username`
+
 `netsh http add urlacl url=http://+:8080/nancyselfhost user=khalid`
+
+netsh is a windows command to allow a user to have binding access to a given url.
+
+*Note:* If running as Administrator, there is no need to ask this permission.
+
 
 ## Windows Service 
 
@@ -97,6 +104,7 @@ File format example
 `ModulesFolder=<string>`
 
 Default value: `${basedir}/modules`
+
 
 ## Web server interface
 

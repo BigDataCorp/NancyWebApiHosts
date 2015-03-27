@@ -100,6 +100,9 @@ namespace NancyHostLib
             // if authenticated, go on...
             if (ctx.CurrentUser != null)
                 return null;
+            // if authentication is disbled, go on...
+            if (!enableAuthentication)
+                return null;
             
             // if login module, go on... (here we can put other routes without authentication)
             if (ctx.Request.Url.Path.IndexOf ("/login", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -129,9 +132,20 @@ namespace NancyHostLib
                 }
             }
 
-            // analise if we got an authenticated user
-            if (!enableAuthentication)
-                return null;
+            // 3. check login/password
+            if (ctx.CurrentUser == null)
+            {
+                var password = TryGetRequestParameter (ctx, "password");
+                var login = TryGetRequestParameter (ctx, "login");
+                if (!String.IsNullOrEmpty (password) && !String.IsNullOrEmpty (login))
+                {
+                    user = accessControlContext.OpenSession (login, password, 10);
+                    if (user.Result)
+                        ctx.CurrentUser = new UserIdentityModel (user.UserInfo.SessionId, user.UserInfo);
+                }
+            }
+
+            // analise if we got an authenticated user            
             return (ctx.CurrentUser == null) ? new Nancy.Responses.HtmlResponse (HttpStatusCode.Unauthorized) : null;
         }
 
