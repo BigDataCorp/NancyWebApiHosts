@@ -13,8 +13,9 @@ namespace NancySelfHost
     {
         public static FlexibleOptions ProgramOptions { get; private set; }
 
+        static bool useTopshelfService = true;
         static string[] commandLineArgs;
-
+        static HashSet<string> topshelfArguments = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { "help", "install", "uninstall", "start", "stop" };
 
         static void Main (string[] args)
         {
@@ -23,6 +24,7 @@ namespace NancySelfHost
             try
             {
                 commandLineArgs = args;
+                useTopshelfService = Console.IsOutputRedirected || args.Any (i => topshelfArguments.Contains (i));
 
                 AppDomain.CurrentDomain.ProcessExit += new EventHandler (CurrentDomain_ProcessExit);
 
@@ -73,22 +75,34 @@ namespace NancySelfHost
         {
             bool isUserInteractive = !Console.IsOutputRedirected;
 
+            // display start up header
             if (isUserInteractive)
             {
                 ConsoleUtils.DisplayHeader (ServiceManager.DefaultServiceDisplayName);
-
-                svr = new ServiceManager ();
-                svr.Start ();
             }
-            else
+            
+            // run
+            if (useTopshelfService)
             {
                 InitializeService ();
             }
+            else
+            {
+                svr = new ServiceManager ();
+                svr.Start ();
+            }
 
+
+            // display program ending message
             if (isUserInteractive)
             {
                 ConsoleUtils.DisplayHeader ();
-                ConsoleUtils.WaitForAnyKey ("Press any key to EXIT...");
+                string line;
+                do
+                {
+                    line = ConsoleUtils.GetUserInput ("Type EXIT command to exit application...");
+                }
+                while (!line.Equals ("exit", StringComparison.OrdinalIgnoreCase));                
             }
         }
 
@@ -126,10 +140,9 @@ namespace NancySelfHost
                     });
                 });
                 
-                var ignore = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { "help", "install", "uninstall", "start", "stop"};
                 foreach (var k in ProgramOptions.Options)
                 {
-                    if (!ignore.Contains(k.Key))
+                    if (!topshelfArguments.Contains (k.Key))
                     {
                         host.AddCommandLineDefinition (k.Key, (i) => {});
                     }  
