@@ -14,7 +14,6 @@ namespace NancySelfHost
         public static FlexibleOptions ProgramOptions { get; private set; }
 
         static bool useTopshelfService = true;
-        static string[] commandLineArgs;
         static HashSet<string> topshelfArguments = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { "help", "install", "uninstall", "start", "stop" };
 
         static void Main (string[] args)
@@ -23,10 +22,9 @@ namespace NancySelfHost
             System.Environment.ExitCode = -10;
             try
             {
-                commandLineArgs = args;
-                useTopshelfService = Console.IsOutputRedirected || args.Any (i => topshelfArguments.Contains (i));
-
                 AppDomain.CurrentDomain.ProcessExit += new EventHandler (CurrentDomain_ProcessExit);
+
+                useTopshelfService = Console.IsOutputRedirected || args.Any (i => topshelfArguments.Contains (i));
 
                 // system initialization
                 DefaultProgramInitialization (args);
