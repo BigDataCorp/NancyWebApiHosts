@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Web;
 
-namespace NancyASPHost
+namespace NancyHostLib
 {
     // http://simoncropp.com/conditionalresponseswithnancyfx
     // http://stackoverflow.com/questions/12726113/does-nancyfx-support-static-content-caching-via-the-etag-and-last-modified-heade

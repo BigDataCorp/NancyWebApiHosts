@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Web;
 
-namespace NancyASPHost
+namespace NancyHostLib
 {
     public class SystemGlobals
     {
@@ -18,17 +18,13 @@ namespace NancyASPHost
         public readonly static CultureInfo CultureEn = new CultureInfo ("en");
 
         private static FlexibleOptions _options = new FlexibleOptions ();
-        static SystemGlobals ()
-        {
-            Initialize ();
-        }
-
+        
         public static FlexibleOptions Options
         {
             get { return _options;  }
         }
 
-        public static void Initialize ()
+        public static void Initialize (string[] args = null)
         {
             if (_initialized)
                 return;
@@ -49,7 +45,7 @@ namespace NancyASPHost
             // increase limit of concurrent TCP connections
             // http://blogs.msdn.com/b/jpsanders/archive/2009/05/20/understanding-maxservicepointidletime-and-defaultconnectionlimit.aspx
             System.Net.ServicePointManager.DefaultConnectionLimit = 1024; // more concurrent connections to the same IP (avoid throttling)
-            System.Net.ServicePointManager.MaxServicePointIdleTime = 15 * 1000; // release unused connections sooner (15 seconds)
+            System.Net.ServicePointManager.MaxServicePointIdleTime = 30 * 1000; // release unused connections sooner (15 seconds)
 
             // since mono blocks all non intalled SSL root certificate, lets disable it!
             System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
@@ -61,10 +57,23 @@ namespace NancyASPHost
             InitializeLog ();
 
             // options initialization
-            InitializeOptions ();
+            InitializeOptions (args);
 
             // load modules
-            ModuleContainer.Instance.Initialize (Options.Get ("ModulesFolder"), new Type[0]);
+            var folders = new List<string> ();
+            try
+            {
+                if (!String.IsNullOrWhiteSpace (Options.Get ("Module")))
+                    folders.Add (System.IO.Path.GetDirectoryName (Options.Get ("Module")));
+            }
+            catch (Exception ex)
+            {
+                LogError ("error parsing module: " + Options.Get ("Module"), ex);
+            }
+            if (!String.IsNullOrWhiteSpace (Options.Get ("ModulesFolder")))
+                folders.Add (Options.Get ("ModulesFolder"));
+            // load
+            ModuleContainer.Instance.LoadModules (folders.ToArray ());
 
             LogWarning ("Initialize", "StartUp");
         }
@@ -76,9 +85,9 @@ namespace NancyASPHost
         {
             // default parameters initialization from config file
             if (String.IsNullOrEmpty (logFileName))
-                logFileName = SimpleHelpers.ConfigManager.Get<string> ("LogFilename", "${basedir}/log/" + typeof (SystemGlobals).Namespace + ".log");
+                logFileName = Options.Get<string> ("LogFilename", "${basedir}/log/" + typeof (SystemGlobals).Namespace + ".log");
             if (String.IsNullOrEmpty (logLevel))
-                logLevel = SimpleHelpers.ConfigManager.Get ("LogLevel", "Info");
+                logLevel = Options.Get ("LogLevel", "Info");
 
             // check if log was initialized with same options
             if (_logFileName == logFileName && _logLevel == logLevel)
@@ -96,8 +105,22 @@ namespace NancyASPHost
             // prepare log configuration
             var config = new NLog.Config.LoggingConfiguration ();
 
+            // console output
+            if (!Console.IsOutputRedirected)
+            {
+                var consoleTarget = new NLog.Targets.ColoredConsoleTarget ();
+                consoleTarget.Layout = "${longdate}\t${callsite}\t${level}\t${message}\t${onexception: \\:[Exception] ${exception:format=tostring}}";
+
+                config.AddTarget ("console", consoleTarget);
+
+                var rule1 = new NLog.Config.LoggingRule ("*", LogLevel.Trace, consoleTarget);
+                config.LoggingRules.Add (rule1);
+            }
+
+
+            // file output
             var fileTarget = new NLog.Targets.FileTarget ();
-            fileTarget.FileName = SimpleHelpers.ConfigManager.Get ("LogFilename", "${basedir}/log/" + typeof (SystemGlobals).Namespace + ".log");
+            fileTarget.FileName = Options.Get ("LogFilename", "${basedir}/log/" + typeof (SystemGlobals).Namespace + ".log");
             fileTarget.Layout = "${longdate}\t${logger}\t${level}\t\"${message}${onexception: \t [Exception] ${exception:format=tostring}}\"";//${callsite}
             fileTarget.Layout = "${longdate}\t${callsite}\t${level}\t\"${message}${onexception: \t [Exception] ${exception:format=tostring}}\"";
             fileTarget.ConcurrentWrites = true;
@@ -109,6 +132,7 @@ namespace NancyASPHost
             fileTarget.ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Date;
             fileTarget.ArchiveDateFormat = "yyyyMMdd_HHmmss";
 
+            // set file output to be async
             var wrapper = new NLog.Targets.Wrappers.AsyncTargetWrapper (fileTarget);
 
             config.AddTarget ("file", wrapper);
@@ -121,7 +145,7 @@ namespace NancyASPHost
             NLog.LogManager.Configuration = config;
         }
 
-        private static void InitializeOptions()
+        private static void InitializeOptions (string[] args)
         {
             try
             {
@@ -136,7 +160,19 @@ namespace NancyASPHost
 
                 // adjust alias for web hosted configuration file
                 if (String.IsNullOrEmpty (_options.Get ("config")))
-                    _options.Set ("config", _options.Get ("S3ConfigurationPath", _options.Get ("webConfigurationFile")));
+                    _options.Set ("config", _options.Get ("s3ConfigurationPath", _options.Get ("webConfigurationFile")));
+
+                // parse arguments like: key=value
+                var argsOptions = new FlexibleOptions ();
+                if (args != null)
+                {
+                    for (int ix = 0; ix < args.Length; ix++)
+                    {
+                        int p = args[ix].IndexOf ('=');
+                        if (p > 0)
+                            argsOptions.Set (args[ix].Substring (0, p).Trim (), args[ix].Substring (p + 1).Trim ());
+                    }
+                }
 
                 // load and parse web hosted configuration file (priority order: argsOptions > localOptions)
                 string externalConfigFile = _options.Get ("config", "");
@@ -149,6 +185,12 @@ namespace NancyASPHost
                         _options = FlexibleOptions.Merge (_options, LoadExtenalConfigurationFile (file.Trim (' ', '\'', '"'), configAbortOnError));
                     }
                 }
+
+                // merge options with the following priority:
+                // 1. console arguments
+                // 2. web configuration file
+                // 3. local configuration file (app.config or web.config)
+                _options = FlexibleOptions.Merge (_options, argsOptions);
 
                 InitializeLog ();
             }
@@ -195,12 +237,12 @@ namespace NancyASPHost
             string msg;
             if (ex.TargetSite != null)
             {
-                msg = ex.TargetSite.DeclaringType.FullName;                
+                msg = ex.TargetSite.DeclaringType.FullName;
             }
             else
             {
                 var callingMethod = new System.Diagnostics.StackFrame (1).GetMethod ();
-                msg = callingMethod.DeclaringType.Name + "." + callingMethod.Name;                
+                msg = callingMethod.DeclaringType.Name + "." + callingMethod.Name;
             }
             NLog.LogManager.GetCurrentClassLogger ().Error (msg, ex);
         }

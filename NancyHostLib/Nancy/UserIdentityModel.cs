@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 
-namespace NancyASPHost
+namespace NancyHostLib
 {
     public class UserIdentityModel : IUserIdentity
     {

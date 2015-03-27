@@ -4,10 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Nancy.Hosting.Aspnet;
 using Newtonsoft.Json;
 
-namespace NancyASPHost
+namespace NancyHostLib
 {
     public class NancyBootstrapper : DefaultNancyBootstrapper
     {

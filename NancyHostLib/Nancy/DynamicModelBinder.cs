@@ -5,7 +5,7 @@ using Nancy.ModelBinding;
 using Nancy;
 using Newtonsoft.Json.Linq;
 
-namespace NancyASPHost
+namespace NancyHostLib
 {    
     /// <summary>
     /// based on https://gist.github.com/thecodejunkie/5521941

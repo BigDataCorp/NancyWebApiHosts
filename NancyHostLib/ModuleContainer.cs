@@ -1,30 +1,41 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace NancyASPHost
+namespace NancyHostLib
 {
     public class ModuleContainer
     {
-        delegate object InstanceFactory (params object[] args);
-     
+        public delegate object InstanceFactory (params object[] args);
+
+        class ModuleInfo
+        {
+            public Type TypeInfo;
+            public InstanceFactory Factory;
+        }
+
         object padlock = new object ();
+
+        HashSet<string> blackListedAssemblies = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { "mscorlib", "vshost", "BigDataPipeline", "NLog", "Newtonsoft.Json", "Topshelf", "Topshelf.Linux", "Topshelf.NLog", "BigDataPipeline.Web", "Nancy", "AWSSDK", "Dapper", "Mono.CSharp", "Mono.Security", "NCrontab", "Renci.SshNet", "System.Net.FtpClient", "MongoDB.Bson", "MongoDB.Driver", "System.Data.SQLite", "System.Net.Http.Formatting", "System.Web.Razor", "Microsoft.Owin.Hosting", "Microsoft.Owin", "Owin" };
+
+        Dictionary<string, Assembly> loadedAssemblies;
+        List<Assembly> validAssemblies = new List<Assembly> (30);
 
         Dictionary<string, List<Type>> exportedTypesByBaseType = new Dictionary<string, List<Type>> (StringComparer.Ordinal);
 
-        Dictionary<string, Type> exportedTypes = new Dictionary<string, Type> (StringComparer.Ordinal);
-
-        Dictionary<string, Assembly> loadedAssemblies = new Dictionary<string, Assembly> (StringComparer.Ordinal);
-
-        Dictionary<string, InstanceFactory> exportedFactories = new Dictionary<string, InstanceFactory> (StringComparer.Ordinal);
+        Dictionary<string, ModuleInfo> exportedModules = new Dictionary<string, ModuleInfo> (StringComparer.Ordinal);
 
         NLog.Logger _logger = NLog.LogManager.GetLogger ("ModuleContainer");
 
         static ModuleContainer _instance = new ModuleContainer ();
 
+        /// <summary>
+        /// Gets the singleton instance for the ModuleContainer.
+        /// </summary>
+        /// <value>The instance.</value>
         public static ModuleContainer Instance
         {
             get
@@ -40,7 +51,7 @@ namespace NancyASPHost
         /// </summary>
         /// <param name="modulesFolder">List of folders where plugin/modules are located.</param>
         /// <param name="listOfInterfaces">The list of interfaces or base types.</param>
-        public void Initialize (string[] modulesFolder, Type[] listOfInterfaces)
+        public void LoadModules (string[] modulesFolder, Type[] listOfInterfaces = null)
         {
             lock (padlock)
             {
@@ -55,99 +66,105 @@ namespace NancyASPHost
         /// </summary>
         /// <param name="modulesFolder">The modules folder.</param>
         /// <param name="listOfInterfaces">The list of interfaces or base types.</param>
-        public void Initialize (string modulesFolder, Type[] listOfInterfaces)
+        public void LoadModules (string modulesFolder, Type[] listOfInterfaces = null)
         {
             lock (padlock)
             {
                 ContainerInitialization (new string[] { modulesFolder }, listOfInterfaces);
             }
         }
-        
+
         private void ContainerInitialization (string[] modulesFolder, Type[] listOfInterfaces)
         {
-            // if we have no interface, create an empty list
-            if (listOfInterfaces == null)
-                listOfInterfaces = new Type[0];
+            if (loadedAssemblies == null)
+                loadedAssemblies = new Dictionary<string, Assembly> (StringComparer.Ordinal);
 
             // get base folder
             var baseAddress = AppDomain.CurrentDomain.BaseDirectory;
             // prepare extension folder
             if (modulesFolder == null || modulesFolder.Length == 0 || (modulesFolder.Length == 1 && String.IsNullOrEmpty (modulesFolder[0])))
-                return;
-            
-            // initialize
-            foreach (var t in listOfInterfaces)
-                exportedTypesByBaseType[t.Name] = new List<Type> ();
+                modulesFolder = new string[] { baseAddress };
 
             // get mscorelib assembly
-            Assembly mscorelib = 333.GetType ().Assembly;
+            //Assembly mscorelib = 333.GetType ().Assembly;
 
             // load current assemblies code to register their types and avoid duplicity
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+            if (loadedAssemblies.Count == 0)
             {
-                if (!a.GlobalAssemblyCache && !a.IsDynamic && a != mscorelib)
+                foreach (var a in AppDomain.CurrentDomain.GetAssemblies ())
                 {
-                    loadedAssemblies[a.FullName] = a;                    
+                    if (!a.GlobalAssemblyCache && !a.IsDynamic)
+                    {
+                        loadedAssemblies[a.FullName] = a;
+                        if (!blackListedAssemblies.Contains (ParseAssemblyName (a.FullName)))
+                            validAssemblies.Add (a);
+                    }
                 }
+
+                // register assembly resolution for our loaded modules
+                AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
             }
 
-            // register assembly resolution for our loaded modules
-            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
-
-            var ignoredAssemblies = new Dictionary<string,string> (StringComparer.Ordinal);
+            HashSet<string> invalidAssemblies = null;
+            HashSet<string> loadedFolders = new HashSet<string> (StringComparer.OrdinalIgnoreCase);
 
             // check the directory exists
             foreach (var folder in modulesFolder)
             {
-                var directoryInfo = new DirectoryInfo (prepareFilePath(folder));
-                if (!directoryInfo.Exists)
+                var directoryInfo = new DirectoryInfo (prepareFilePath (folder));
+                if (!directoryInfo.Exists && loadedFolders.Contains (directoryInfo.FullName))
                 {
-                    directoryInfo.Create ();
-                    directoryInfo.Refresh ();
+                    continue;
                 }
-            
+                loadedFolders.Add (directoryInfo.FullName);
+
                 // read all files in modules folder, looking for assemblies
                 // let's read all files, since linux use case sensitive search wich could lead
                 // to case problems like ".dll" and ".Dll"            
-                foreach (var f in directoryInfo.EnumerateFiles ("*", SearchOption.AllDirectories))
+                foreach (var file in directoryInfo.EnumerateFiles ("*", SearchOption.AllDirectories))
                 {
                     // check if file has a valid assembly extension
-                    if (!f.Extension.EndsWith (".dll", StringComparison.OrdinalIgnoreCase) &&
-                        !f.Extension.EndsWith (".exe", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    // try to avoid loading dlls with native code
-                    if (f.FullName.IndexOf ("x86", StringComparison.OrdinalIgnoreCase) > 0 ||
-                        f.FullName.IndexOf ("x64", StringComparison.OrdinalIgnoreCase) > 0 ||
-                        f.FullName.IndexOf ("interop", StringComparison.OrdinalIgnoreCase) > 0)
+                    if (!file.Extension.EndsWith (".dll", StringComparison.OrdinalIgnoreCase) &&
+                        !file.Extension.EndsWith (".exe", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     // try to get assembly full name: "Assembly text name, Version, Culture, PublicKeyToken"
                     // lets ignore it if we are unable to load it (access denied, invalid assembly or native code, etc...)
-                    if (ignoredAssemblies.ContainsKey (f.Name))
+                    if (invalidAssemblies != null && invalidAssemblies.Contains (file.Name))
                         continue;
-                    string fullName = null;
+                    string assemblyName = null;
                     try
-                    { 
-                        fullName = AssemblyName.GetAssemblyName (f.FullName).FullName;
-                    }
-                    catch (Exception ex) 
                     {
-                        ignoredAssemblies[f.Name] = ex.GetType ().Name + ", location: " + f.FullName.Replace (baseAddress, "./").Replace ('\\', '/');
+                        assemblyName = AssemblyName.GetAssemblyName (file.FullName).FullName;
+                    }
+                    catch (BadImageFormatException badImage)
+                    {
+                        if (invalidAssemblies == null)
+                            invalidAssemblies = new HashSet<string> (StringComparer.Ordinal);
+                        invalidAssemblies.Add (file.Name);
+                        continue;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn ("Assembly ignored. Load error: " +
+                            ex.GetType ().Name + ", location: " + file.FullName.Replace (baseAddress, "./").Replace ('\\', '/'));
                         continue;
                     }
 
                     // check if assembly was already loaded
-                    if (loadedAssemblies.ContainsKey (fullName)) 
+                    if (loadedAssemblies.ContainsKey (assemblyName))
                         continue;
 
                     // try to load assembly
                     try
-                    { 
+                    {
                         // load assembly
-                        var a = Assembly.LoadFile (f.FullName);
+                        var a = Assembly.LoadFile (file.FullName);
 
                         // register in our loaded assemblies lookup map for AppDomain.CurrentDomain.AssemblyResolve resolution
-                        loadedAssemblies.Add (a.FullName, a);
+                        loadedAssemblies.Add (assemblyName, a);
+                        if (!blackListedAssemblies.Contains (ParseAssemblyName (assemblyName)))
+                            validAssemblies.Add (a);
                     }
                     catch (Exception ex)
                     {
@@ -157,43 +174,79 @@ namespace NancyASPHost
             }
 
             // try to load derived types
+            SearchForImplementations (listOfInterfaces);
+        }
+
+        private void SearchForImplementations (Type[] listOfInterfaces)
+        {
+            // sanity check
+            if (listOfInterfaces == null || listOfInterfaces.Length == 0)
+                return;
+
+            // check if first assembly scan was executed
+            if (loadedAssemblies == null)
+                ContainerInitialization (null, listOfInterfaces);
+
+            // prepare list of loaded interfaces
+            for (int i = 0; i < listOfInterfaces.Length; i++)
+            {
+                if (!exportedTypesByBaseType.ContainsKey (listOfInterfaces[i].FullName))
+                {
+                    exportedTypesByBaseType[listOfInterfaces[i].FullName] = new List<Type> ();
+                }
+            }
+
+            // try to load derived types
             try
             {
-                foreach (var a in loadedAssemblies.Values)
+                List<Type> implementationsList;
+                ModuleInfo info;
+
+                // search listed assemblies
+                foreach (var a in validAssemblies)
                 {
                     // dynamic assemblies don't have GetExportedTypes method
                     if (a.IsDynamic)
                         continue;
-                    // search for types derived from desired types list (listOfInterfaces)
-                    foreach (var t in a.GetExportedTypes ())
+
+                    // try to list public types
+                    // only .net 4.5+ has this method implemented!
+                    Type[] types = null;
+                    try
                     {
-                        if (t == null || t.IsAbstract || t.IsGenericTypeDefinition || t.IsInterface)
+                        types = a.GetExportedTypes ();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn (ex);
+                    }
+
+                    // search for types derived from desired types list (listOfInterfaces)
+                    for (int i = 0; i < types.Length; i++)
+                    {
+                        Type t = types[i];
+                        if (t == null || t.IsAbstract || t.IsGenericTypeDefinition || !t.IsClass) //t.IsInterface
                             continue;
                         for (int j = 0; j < listOfInterfaces.Length; j++)
                         {
                             if (listOfInterfaces[j].IsAssignableFrom (t))
                             {
-                                if (exportedTypes.ContainsKey (t.Name))
+                                // register type in exportedModules map
+                                if (!exportedModules.TryGetValue (t.FullName, out info))
                                 {
-                                    // ignore if the full name is the same!!!
-                                    if (exportedTypes[t.Name].FullName == t.FullName)
-                                        continue;
-                                    _logger.Info ("Module with same name detected {0}. {1} was overwritten with {2}.", t.Name, exportedTypes[t.Name].FullName, t.FullName);                                    
+                                    info = new ModuleInfo { TypeInfo = t };
+                                    // register type by fullName (namespace + name) and name
+                                    exportedModules[t.FullName] = info;
+                                    exportedModules[t.Name] = info;
                                 }
 
-                                // register type by fullName (namespace + name) and name
-                                exportedTypes[t.FullName] = t;
-                                exportedTypes[t.Name] = t;
-
-                                // add to interface list of types
-                                List<Type> list;
-                                exportedTypesByBaseType.TryGetValue (listOfInterfaces[j].Name, out list);
-                                if (list == null)
+                                // add to interface list of types                                
+                                if (!exportedTypesByBaseType.TryGetValue (listOfInterfaces[j].FullName, out implementationsList))
                                 {
-                                    list = new List<Type> ();
-                                    exportedTypesByBaseType[listOfInterfaces[j].Name] = list;
+                                    implementationsList = new List<Type> ();
+                                    exportedTypesByBaseType[listOfInterfaces[j].FullName] = implementationsList;
                                 }
-                                list.Add (t);
+                                implementationsList.Add (t);
                             }
                         }
                     }
@@ -203,17 +256,7 @@ namespace NancyASPHost
             {
                 _logger.Warn (ex);
             }
-
-            // log initialization status
-            if (ignoredAssemblies.Count > 0)
-            {
-                _logger.Info ("Assemblies ignorados: " + Environment.NewLine + 
-                    "[" + 
-                    Environment.NewLine +
-                    String.Join ("," + Environment.NewLine, ignoredAssemblies.Select (i => i.Key + ": " + i.Value)) + Environment.NewLine +
-                    "]");
-            }
-        }        
+        }
 
         private Assembly CurrentDomain_AssemblyResolve (object sender, ResolveEventArgs args)
         {
@@ -222,6 +265,12 @@ namespace NancyASPHost
                 throw new InvalidOperationException (
                       String.Format ("Assembly not available in plugin/modules path; assembly name '{0}'.", args.Name));
             return a;
+        }
+
+        private static string ParseAssemblyName (string name)
+        {
+            int i = name.IndexOf (',');
+            return (i > 0) ? name.Substring (0, i) : name;
         }
 
         /// <summary>
@@ -244,6 +293,7 @@ namespace NancyASPHost
             path = path.Replace ("\\", "/");
             return path;
         }
+
         /// <summary>
         /// Creates the type constructor delegate for a type.
         /// </summary>
@@ -297,7 +347,7 @@ namespace NancyASPHost
             //make a NewExpression that calls the
             //ctor with the args we just created
             var newExp = Expression.New (ctor, argsExp);
-           
+
             //create a lambda with the New
             //Expression as body and our param object[] as arg
             var lambda = Expression.Lambda (typeof (InstanceFactory), newExp, param);
@@ -313,9 +363,14 @@ namespace NancyASPHost
         /// <typeparam name="T">The type of the T.</typeparam>
         /// <param name="fullTypeName">Full name of the type.</param>
         /// <returns></returns>
-        public T GetInstance<T> (string fullTypeName) where T : class
+        public T GetInstanceAs<T> (string fullTypeName) where T : class
         {
             return GetInstance (fullTypeName) as T;
+        }
+
+        public T GetInstanceAs<T> (Type type) where T : class
+        {
+            return GetInstance (type.FullName) as T;
         }
 
         /// <summary>
@@ -335,20 +390,15 @@ namespace NancyASPHost
         /// <returns></returns>
         public object GetInstance (string fullTypeName)
         {
-            Type t;
-            InstanceFactory ctor;
+            ModuleInfo module;
             // if we have the type, lets get it
-            if (exportedTypes.TryGetValue (fullTypeName, out t))
+            if (exportedModules.TryGetValue (fullTypeName, out module))
             {
-                if (!exportedFactories.TryGetValue (t.FullName, out ctor))
+                if (module.Factory == null)
                 {
-                    ctor = CreateFactory (t);
-                    lock (padlock)
-                    {
-                        exportedFactories[t.FullName] = ctor;
-                    }
+                    module.Factory = CreateFactory (module.TypeInfo);
                 }
-                return ctor ();
+                return module.Factory ();
             }
             return null;
         }
@@ -358,9 +408,9 @@ namespace NancyASPHost
         /// </summary>
         /// <param name="type">The base type.</param>
         /// <returns></returns>
-        public T GetInstance<T> () where T : class
+        public T GetInstanceOf<T> () where T : class
         {
-            return GetInstances<T> ().FirstOrDefault ();
+            return GetInstancesOf<T> ().FirstOrDefault ();
         }
 
         /// <summary>
@@ -368,10 +418,10 @@ namespace NancyASPHost
         /// </summary>
         /// <typeparam name="T">The interface or base type.</typeparam>
         /// <returns>List of intances of registered types</returns>
-        public IEnumerable<T> GetInstances<T> () where T : class
+        public IEnumerable<T> GetInstancesOf<T> () where T : class
         {
-            foreach (var t in GetTypes<T> ())
-                yield return GetInstance<T> (t.FullName);
+            foreach (var t in GetTypesOf<T> ())
+                yield return GetInstanceAs<T> (t.FullName);
         }
 
         /// <summary>
@@ -379,13 +429,51 @@ namespace NancyASPHost
         /// </summary>
         /// <typeparam name="T">The interface or base type.</typeparam>
         /// <returns>List of registered types</returns>
-        public IEnumerable<Type> GetTypes<T> () where T : class
+        public IEnumerable<Type> GetTypesOf<T> () where T : class
         {
             List<Type> list;
-            if (!exportedTypesByBaseType.TryGetValue (typeof (T).Name, out list))
-                throw new Exception ("Service Type unknow. Type not registered on ModuleContainer.Initialize call.");
+            // load interface implementations
+            if (!exportedTypesByBaseType.TryGetValue (typeof (T).FullName, out list))
+            {
+                // if none was found, it was not initilized yet...
+                SearchForImplementations (new[] { typeof (T) });
+                // after the interface initilization, check again...
+                if (!exportedTypesByBaseType.TryGetValue (typeof (T).FullName, out list))
+                    yield break;
+            }
+            // return implementations
             for (int i = 0; i < list.Count; i++)
                 yield return list[i];
+        }
+
+        /// <summary>
+        /// Gets the constructor for the desired type.
+        /// </summary>
+        /// <param name="type">The type.</param>
+        /// <returns></returns>
+        public InstanceFactory GetConstructor (Type type)
+        {
+            return GetConstructor (type.FullName);
+        }
+
+        /// <summary>
+        /// Gets the constructor for the desired type.
+        /// </summary>
+        /// <param name="fullTypeName">Full name of the type.</param>
+        /// <returns></returns>
+        public InstanceFactory GetConstructor (string fullTypeName)
+        {
+            ModuleInfo module;
+            // if we have the type, lets get it
+            if (exportedModules.TryGetValue (fullTypeName, out module))
+            {
+                if (module.Factory == null)
+                {
+                    module.Factory = CreateFactory (module.TypeInfo);
+                }
+                return module.Factory;
+            }
+            return null;
         }
     }
 }

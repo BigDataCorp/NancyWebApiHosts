@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NancyASPHost", "NancyASPHos
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teste2", "Teste2\Teste2.csproj", "{79593615-289C-4376-9191-04A6A2C166A8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NancyHostLib", "NancyHostLib\NancyHostLib.csproj", "{D7E84CD2-9BE3-4C36-ACCA-B4773C45B075}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NancySelfHost", "NancySelfHost\NancySelfHost.csproj", "{F30E11CF-CCBB-4FF0-BA3F-8C157395C78A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{79593615-289C-4376-9191-04A6A2C166A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{79593615-289C-4376-9191-04A6A2C166A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{79593615-289C-4376-9191-04A6A2C166A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D7E84CD2-9BE3-4C36-ACCA-B4773C45B075}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7E84CD2-9BE3-4C36-ACCA-B4773C45B075}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7E84CD2-9BE3-4C36-ACCA-B4773C45B075}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D7E84CD2-9BE3-4C36-ACCA-B4773C45B075}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F30E11CF-CCBB-4FF0-BA3F-8C157395C78A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F30E11CF-CCBB-4FF0-BA3F-8C157395C78A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F30E11CF-CCBB-4FF0-BA3F-8C157395C78A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F30E11CF-CCBB-4FF0-BA3F-8C157395C78A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
