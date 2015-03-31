@@ -88,6 +88,19 @@ namespace NancyHostLib
             base.RequestStartup (container, pipelines, context);
         }
 
+        protected override void ConfigureApplicationContainer (Nancy.TinyIoc.TinyIoCContainer container)
+        {
+            //base.ConfigureApplicationContainer (container);
+
+            // substitute nancy default assembly registration to a faster selected loading... (5x faster loading...)
+            var nancyEngineAssembly = typeof (NancyEngine).Assembly;
+            HashSet<string> blackListedAssemblies = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { "mscorlib", "vshost", "NLog", "Newtonsoft.Json", "Topshelf", "Topshelf.Linux", "Topshelf.NLog", "AWSSDK", "Dapper", "Mono.CSharp", "Mono.Security", "NCrontab", "Renci.SshNet", "System.Net.FtpClient", "MongoDB.Bson", "MongoDB.Driver", "System.Data.SQLite", "System.Net.Http.Formatting", "System.Web.Razor", "Microsoft.Owin.Hosting", "Microsoft.Owin", "Owin" };
+            container.AutoRegister (AppDomain.CurrentDomain.GetAssemblies ().Where (a => !a.GlobalAssemblyCache && !a.IsDynamic && !blackListedAssemblies.Contains (ParseAssemblyName (a.FullName))), Nancy.TinyIoc.DuplicateImplementationActions.RegisterMultiple, t => t.Assembly != nancyEngineAssembly);
+
+            // register json.net default options
+            container.Register<JsonSerializer, CustomJsonSerializer> ();
+        }
+
         #region *   Authentication  *
 
         BDCAccessControlClient.AccessControl accessControlContext = new BDCAccessControlClient.AccessControl ();
@@ -152,6 +165,7 @@ namespace NancyHostLib
         #endregion
         
         #region *   JSON serialization options  *
+        
         /// ***********************
         /// Custom Json net options
         /// ***********************
@@ -164,15 +178,9 @@ namespace NancyHostLib
                 MissingMemberHandling = MissingMemberHandling.Ignore;
                 NullValueHandling = NullValueHandling.Ignore;
                 ObjectCreationHandling = ObjectCreationHandling.Replace;
+
+                // note: this converter is added to the default settings of Newtonsoft JSON.NET in ConfigureApplicationContainer method
             }
-        }
-
-        // Add this converter to the default settings of Newtonsoft JSON.NET.            
-        protected override void ConfigureApplicationContainer (Nancy.TinyIoc.TinyIoCContainer container)        
-        {
-            base.ConfigureApplicationContainer (container);
-
-            container.Register<JsonSerializer, CustomJsonSerializer> ();
         }
 
         #endregion
@@ -181,6 +189,12 @@ namespace NancyHostLib
         /// ***********************
         /// Helper methods
         /// ***********************
+        private static string ParseAssemblyName (string name)
+        {
+            int i = name.IndexOf (',');
+            return (i > 0) ? name.Substring (0, i) : name;
+        }
+        
         static string GetLastPathPart (string path)
         {
             // reduce length to disregard ending '\\' or '/'
