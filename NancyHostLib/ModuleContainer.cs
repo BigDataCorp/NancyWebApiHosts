@@ -79,102 +79,118 @@ namespace NancyHostLib
             if (loadedAssemblies == null)
                 loadedAssemblies = new Dictionary<string, Assembly> (StringComparer.Ordinal);
 
-            // get base folder
-            var baseAddress = AppDomain.CurrentDomain.BaseDirectory;
             // prepare extension folder
             if (modulesFolder == null || modulesFolder.Length == 0 || (modulesFolder.Length == 1 && String.IsNullOrEmpty (modulesFolder[0])))
-                modulesFolder = new string[] { baseAddress };
+                modulesFolder = new string[] { };//new string[] { AppDomain.CurrentDomain.BaseDirectory };
 
             // get mscorelib assembly
             //Assembly mscorelib = 333.GetType ().Assembly;
-
-            // load current assemblies code to register their types and avoid duplicity
+            int oldAssembliesCount = loadedAssemblies.Count;
+            
             if (loadedAssemblies.Count == 0)
             {
-                foreach (var a in AppDomain.CurrentDomain.GetAssemblies ())
-                {
-                    if (!a.GlobalAssemblyCache && !a.IsDynamic)
-                    {
-                        loadedAssemblies[a.FullName] = a;
-                        if (!blackListedAssemblies.Contains (ParseAssemblyName (a.FullName)))
-                            validAssemblies.Add (a);
-                    }
-                }
-
                 // register assembly resolution for our loaded modules
                 AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
             }
 
-            HashSet<string> invalidAssemblies = null;
-            HashSet<string> loadedFolders = new HashSet<string> (StringComparer.OrdinalIgnoreCase);
+            // load current assemblies code to register their types and avoid duplicity
+            foreach (var a in AppDomain.CurrentDomain.GetAssemblies ())
+            {
+                if (!a.GlobalAssemblyCache && !a.IsDynamic && !loadedAssemblies.ContainsKey (a.FullName))
+                {
+                    loadedAssemblies[a.FullName] = a;
+                    if (!blackListedAssemblies.Contains (ParseAssemblyName (a.FullName)))
+                        validAssemblies.Add (a);
+                }
+            }
+
+            HashSet<string> parsedAssemblies = new HashSet<string> (StringComparer.OrdinalIgnoreCase);
 
             // check the directory exists
             foreach (var folder in modulesFolder)
             {
-                var directoryInfo = new DirectoryInfo (prepareFilePath (folder));
-                if (!directoryInfo.Exists && loadedFolders.Contains (directoryInfo.FullName))
-                {
+                var path = prepareFilePath (folder);
+                if (path == null || parsedAssemblies.Contains (path.Item1 + path.Item2))
                     continue;
-                }
-                loadedFolders.Add (directoryInfo.FullName);
+                parsedAssemblies.Add (path.Item1 + path.Item2);
+
+                // check folder existance
+                var directoryInfo = new DirectoryInfo (path.Item1);
+                if (!directoryInfo.Exists)
+                    continue;
 
                 // read all files in modules folder, looking for assemblies
                 // let's read all files, since linux use case sensitive search wich could lead
                 // to case problems like ".dll" and ".Dll"            
-                foreach (var file in directoryInfo.EnumerateFiles ("*", SearchOption.AllDirectories))
+                foreach (var file in directoryInfo.EnumerateFiles (path.Item2, SearchOption.AllDirectories))
                 {
                     // check if file has a valid assembly extension
                     if (!file.Extension.EndsWith (".dll", StringComparison.OrdinalIgnoreCase) &&
                         !file.Extension.EndsWith (".exe", StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    // try to get assembly full name: "Assembly text name, Version, Culture, PublicKeyToken"
-                    // lets ignore it if we are unable to load it (access denied, invalid assembly or native code, etc...)
-                    if (invalidAssemblies != null && invalidAssemblies.Contains (file.Name))
-                        continue;
-                    string assemblyName = null;
-                    try
-                    {
-                        assemblyName = AssemblyName.GetAssemblyName (file.FullName).FullName;
-                    }
-                    catch (BadImageFormatException badImage)
-                    {
-                        if (invalidAssemblies == null)
-                            invalidAssemblies = new HashSet<string> (StringComparer.Ordinal);
-                        invalidAssemblies.Add (file.Name);
-                        continue;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn ("Assembly ignored. Load error: " +
-                            ex.GetType ().Name + ", location: " + file.FullName.Replace (baseAddress, "./").Replace ('\\', '/'));
-                        continue;
-                    }
-
-                    // check if assembly was already loaded
-                    if (loadedAssemblies.ContainsKey (assemblyName))
-                        continue;
-
-                    // try to load assembly
-                    try
-                    {
-                        // load assembly
-                        var a = Assembly.LoadFile (file.FullName);
-
-                        // register in our loaded assemblies lookup map for AppDomain.CurrentDomain.AssemblyResolve resolution
-                        loadedAssemblies.Add (assemblyName, a);
-                        if (!blackListedAssemblies.Contains (ParseAssemblyName (assemblyName)))
-                            validAssemblies.Add (a);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn (ex);
-                    }
+                    // check list of parsed files
+                    LoadAssembly (file, parsedAssemblies);
                 }
             }
 
+            if (oldAssembliesCount != loadedAssemblies.Count)
+            {
+                exportedTypesByBaseType.Clear ();
+            }
+            
             // try to load derived types
             SearchForImplementations (listOfInterfaces);
+        }
+ 
+        private void LoadAssembly (FileInfo file, HashSet<string> parsedAssemblies)
+        {
+            // check list of parsed files            
+            // lets ignore it if it was already loaded or we were unable to load it...
+            if (parsedAssemblies != null)
+            {
+                if (parsedAssemblies.Contains (file.Name))
+                    return;
+                parsedAssemblies.Add (file.Name);
+            }
+
+            // try to get assembly full name: "Assembly text name, Version, Culture, PublicKeyToken"
+            // lets ignore it if we are unable to load it (access denied, invalid assembly or native code, etc...)
+            string assemblyName = null;
+            try
+            {
+                assemblyName = AssemblyName.GetAssemblyName (file.FullName).FullName;
+            }
+            catch (BadImageFormatException badImage)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn ("Assembly ignored. Load error: " +
+                              ex.GetType ().Name + ", location: " + file.FullName.Replace (AppDomain.CurrentDomain.BaseDirectory, "./").Replace ('\\', '/'));
+                return;
+            }
+
+            // check if assembly was already loaded
+            if (loadedAssemblies.ContainsKey (assemblyName))
+                return;
+
+            // try to load assembly
+            try
+            {
+                // load assembly
+                var a = Assembly.LoadFile (file.FullName);
+
+                // register in our loaded assemblies lookup map for AppDomain.CurrentDomain.AssemblyResolve resolution
+                loadedAssemblies.Add (assemblyName, a);
+                if (!blackListedAssemblies.Contains (ParseAssemblyName (assemblyName)))
+                    validAssemblies.Add (a);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn (ex);
+            }
         }
 
         private void SearchForImplementations (Type[] listOfInterfaces)
@@ -259,11 +275,25 @@ namespace NancyHostLib
         }
 
         private Assembly CurrentDomain_AssemblyResolve (object sender, ResolveEventArgs args)
-        {
+        { 
             Assembly a;
             if (!loadedAssemblies.TryGetValue (args.Name, out a))
-                throw new InvalidOperationException (
-                      String.Format ("Assembly not available in plugin/modules path; assembly name '{0}'.", args.Name));
+            {
+                if (!args.RequestingAssembly.IsDynamic && !args.RequestingAssembly.GlobalAssemblyCache)
+                {
+                    var path = Path.Combine (Path.GetDirectoryName (args.RequestingAssembly.Location), ParseAssemblyName(args.Name));
+                    if (File.Exists (path + ".dll"))
+                        LoadAssembly (new FileInfo (path + ".dll"), null);
+                    else if (File.Exists (path + ".exe"))
+                        LoadAssembly (new FileInfo (path + ".exe"), null);
+                    loadedAssemblies.TryGetValue (args.Name, out a);
+                }
+                if (a == null)
+                {
+                    throw new InvalidOperationException (
+                        String.Format ("Assembly not available in plugin/modules path; assembly name '{0}'.", args.Name));                        
+                }
+            }
             return a;
         }
 
@@ -273,25 +303,55 @@ namespace NancyHostLib
             return (i > 0) ? name.Substring (0, i) : name;
         }
 
+        private static string ParseFirstNamespace (string name)
+        {
+            int i = name.IndexOf ('.');
+            return (i > 0) ? name.Substring (0, i) : name;
+        }
         /// <summary>
         /// Adjust file path.
         /// </summary>
-        private string prepareFilePath (string path)
+        private static Tuple<string,string> prepareFilePath (string path)
         {
-            if (path == null)
-                return path;
+            if (String.IsNullOrWhiteSpace (path))
+                return null;
             int ix = path.IndexOf ("${basedir}", StringComparison.OrdinalIgnoreCase);
             if (ix >= 0)
             {
                 int tagLen = "${basedir}".Length;
                 string appDir = AppDomain.CurrentDomain.BaseDirectory;
+                // check ending with tag
                 if (path.Length > ix + tagLen && (path[ix + tagLen] == '\\' || path[ix + tagLen] == '/'))
                     appDir = appDir.EndsWith ("/") || appDir.EndsWith ("\\") ? appDir.Substring (0, appDir.Length - 1) : appDir;
+                // replace tag (ignorecase)
                 path = path.Remove (ix, tagLen);
                 path = path.Insert (ix, appDir);
             }
-            path = path.Replace ("\\", "/");
-            return path;
+            path = path.Replace ('\\', '/');
+
+            // split 
+            var s = SplitByLastPathPart (path);
+            // check spli result
+            if (String.IsNullOrWhiteSpace (s.Item1))
+                return null;
+            if (String.IsNullOrWhiteSpace (s.Item2))
+                return Tuple.Create (s.Item1, "*");
+            // if there is no file extension and no wild card, treat path as directory
+            if (s.Item2.IndexOf ('.') < 0 && s.Item2.IndexOf ('*') < 0)
+                return Tuple.Create (path, "*");
+            return s;
+        }
+
+        public static Tuple<string, string> SplitByLastPathPart (string pattern)
+        {
+            if (pattern != null)
+            {
+                var pos = Math.Max (pattern.LastIndexOf ('\\'), pattern.LastIndexOf ('/')) + 1;
+                if (pos < 1)
+                    return Tuple.Create (pattern, "");
+                return Tuple.Create (pos > 0 ? pattern.Substring (0, pos) : "", pattern.Substring (pos));
+            }
+            return null;
         }
 
         /// <summary>
