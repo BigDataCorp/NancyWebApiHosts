@@ -79,9 +79,6 @@
     <Reference Include="Topshelf.Linux">
       <HintPath>..\packages\Topshelf.Linux.1.0.11.10\lib\Topshelf.Linux.dll</HintPath>
     </Reference>
-    <Reference Include="Topshelf.NLog">
-      <HintPath>..\packages\Topshelf.NLog.3.1.4\lib\net40-full\Topshelf.NLog.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConsoleUtils\ConsoleUtils.cs" />

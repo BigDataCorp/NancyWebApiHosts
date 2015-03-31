@@ -24,7 +24,7 @@ namespace NancySelfHost
             {
                 AppDomain.CurrentDomain.ProcessExit += new EventHandler (CurrentDomain_ProcessExit);
 
-                useTopshelfService = Console.IsOutputRedirected || args.Any (i => topshelfArguments.Contains (i));
+                useTopshelfService = Console.IsOutputRedirected || args == null || args.Length == 0 || args.Any (i => topshelfArguments.Contains (i));
 
                 // system initialization
                 DefaultProgramInitialization (args);
@@ -43,11 +43,10 @@ namespace NancySelfHost
         }
 
         private static void DefaultProgramInitialization (string[] args)
-        {
-            SystemGlobals.Initialize (args);
-
-            // load configurations
-            ProgramOptions = SystemGlobals.Options;
+        {            
+            // load configurations and
+            // initialize program
+            ProgramOptions = SystemGlobals.Initialize (args);
 
             // display program initialization header
             if (!Console.IsOutputRedirected)

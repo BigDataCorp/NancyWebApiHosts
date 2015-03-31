@@ -61,8 +61,22 @@ File format example
 ```
 
 
+### Module
+`module=<string>`
+
+Example:
+`module='c:/temp/myCustomModule.dll'`
+
+Will automatically load this file
+
+
+
 ### ModulesFolder
 `ModulesFolder=<string>`
 
-Default value: `${basedir}/modules`
+Default value: `${basedir}/modules/`
+
+Or a file path: `${basedir}/modules/*Module.dll`
+
+
 

@@ -39,9 +39,20 @@ NancySelfHost.exe uninstall
 `module=<string>`
 
 Example:
-`module='myCustomModule.dll'`
+`module='c:/temp/myCustomModule.dll'`
 
 Will automatically load this file
+
+
+
+### ModulesFolder
+`ModulesFolder=<string>`
+
+Default value: `${basedir}/modules/`
+
+Or a file path: `${basedir}/modules/*Module.dll`
+
+
 
 ### EnableAuthentication
 `EnableAuthentication=<bool>`
@@ -98,12 +109,6 @@ File format example
     "storageConnectionString": "..."
 }
 ```
-
-
-### ModulesFolder
-`ModulesFolder=<string>`
-
-Default value: `${basedir}/modules`
 
 
 ## Web server interface

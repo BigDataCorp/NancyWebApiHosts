@@ -24,10 +24,10 @@ namespace NancyHostLib
             get { return _options;  }
         }
 
-        public static void Initialize (string[] args = null)
+        public static FlexibleOptions Initialize (string[] args = null)
         {
             if (_initialized)
-                return;
+                return Options;
             _initialized = true;
 
             // set culture info
@@ -48,10 +48,7 @@ namespace NancyHostLib
             System.Net.ServicePointManager.MaxServicePointIdleTime = 30 * 1000; // release unused connections sooner (15 seconds)
 
             // since mono blocks all non intalled SSL root certificate, lets disable it!
-            System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                                    
-            // app config manager configuration
-            SimpleHelpers.ConfigManager.AddNonExistingKeys = true;            
+            System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };       
                         
             // log initialization
             InitializeLog ();
@@ -64,7 +61,7 @@ namespace NancyHostLib
             try
             {
                 if (!String.IsNullOrWhiteSpace (Options.Get ("Module")))
-                    folders.Add (System.IO.Path.GetDirectoryName (Options.Get ("Module")));
+                    folders.Add (System.IO.Path.GetDirectoryName (Options.Get ("Module")) + "/");
             }
             catch (Exception ex)
             {
@@ -72,10 +69,14 @@ namespace NancyHostLib
             }
             if (!String.IsNullOrWhiteSpace (Options.Get ("ModulesFolder")))
                 folders.Add (Options.Get ("ModulesFolder"));
+            if (folders.Count == 0)
+                folders.Add ("${basedir}");
             // load
             ModuleContainer.Instance.LoadModules (folders.ToArray ());
 
             LogWarning ("Initialize", "StartUp");
+
+            return Options;
         }
 
         static string _logFileName;
@@ -152,27 +153,29 @@ namespace NancyHostLib
                 if (_options == null)
                     _options = new FlexibleOptions ();
                 // parse local configuration file
-                // display the options listed in the configuration file                
-                foreach (var o in SimpleHelpers.ConfigManager.GetAll ())
+                // display the options listed in the configuration file                 
+                try
                 {
-                    _options.Set (o.Key, o.Value);                    
+                    var appSettings = System.Configuration.ConfigurationManager.AppSettings;
+                    foreach (var k in appSettings.AllKeys)
+                    {
+                        _options.Set (k, appSettings[k]);                    
+                    }
                 }
+                catch (Exception appSettingsEx)
+                {
+                    LogManager.GetCurrentClassLogger ().Warn (appSettingsEx);
+                }
+
+                // parse arguments like: key=value
+                var argsOptions =  ParseCommandLineArguments (args);
+
+                // merge options (priority order: argsOptions > localOptions)
+                _options = FlexibleOptions.Merge (_options, argsOptions);
 
                 // adjust alias for web hosted configuration file
                 if (String.IsNullOrEmpty (_options.Get ("config")))
                     _options.Set ("config", _options.Get ("s3ConfigurationPath", _options.Get ("webConfigurationFile")));
-
-                // parse arguments like: key=value
-                var argsOptions = new FlexibleOptions ();
-                if (args != null)
-                {
-                    for (int ix = 0; ix < args.Length; ix++)
-                    {
-                        int p = args[ix].IndexOf ('=');
-                        if (p > 0)
-                            argsOptions.Set (args[ix].Substring (0, p).Trim (), args[ix].Substring (p + 1).Trim ());
-                    }
-                }
 
                 // load and parse web hosted configuration file (priority order: argsOptions > localOptions)
                 string externalConfigFile = _options.Get ("config", "");
@@ -190,14 +193,53 @@ namespace NancyHostLib
                 // 1. console arguments
                 // 2. web configuration file
                 // 3. local configuration file (app.config or web.config)
+                // note: we must merge again for argsOptions has higher priority than all other
                 _options = FlexibleOptions.Merge (_options, argsOptions);
 
-                InitializeLog ();
+                InitializeLog (_options.Get ("logFilename"), _options.Get ("logLevel", "Info"));
             }
             catch (Exception ex)
             {                
                 LogManager.GetCurrentClassLogger ().Error (ex);
             }
+        }
+
+        private static FlexibleOptions ParseCommandLineArguments (string[] args)
+        {
+            var argsOptions = new FlexibleOptions ();
+            if (args != null)
+            {
+                string arg;
+                string lastTag = null;
+                for (int ix = 0; ix < args.Length; ix++)
+                {
+                    arg = args[ix];
+                    // check for option with key=value sintax
+                    // also valid for --key:value
+                    int p = arg.IndexOf ('=');
+                    if (p > 0)
+                    {
+                        argsOptions.Set (arg.Substring (0, p).Trim ().TrimStart ('-', '/'), arg.Substring (p + 1).Trim ());
+                        lastTag = null;
+                        continue;
+                    }
+
+                    // search for tag stating with special character
+                    if (arg.StartsWith ("-", StringComparison.Ordinal) || arg.StartsWith ("/", StringComparison.Ordinal))
+                    {
+                        lastTag = arg.Trim ().TrimStart ('-', '/');
+                        argsOptions.Set (lastTag, "true");
+                        continue;
+                    }
+
+                    // set value of last tag
+                    if (lastTag != null)
+                    {
+                        argsOptions.Set (lastTag, arg.Trim ());
+                    }
+                }
+            }
+            return argsOptions;
         }
 
         public static void LogInfo (string tag, string message, object pageContext = null)
