@@ -16,10 +16,6 @@ namespace NancyHostLib
 
         static bool enableAuthentication = false;
 
-        static NancyBootstrapper()
-        {
-            
-        }
         protected override void ConfigureConventions (Nancy.Conventions.NancyConventions nancyConventions)
         {
             // add resorce folders (where javascript, images, css etc. can be served)
@@ -113,9 +109,6 @@ namespace NancyHostLib
             // if authenticated, go on...
             if (ctx.CurrentUser != null)
                 return null;
-            // if authentication is disbled, go on...
-            if (!enableAuthentication)
-                return null;
             
             // if login module, go on... (here we can put other routes without authentication)
             if (ctx.Request.Url.Path.IndexOf ("/login", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -158,6 +151,9 @@ namespace NancyHostLib
                 }
             }
 
+            // if authentication is disbled, go on...
+            if (!enableAuthentication)
+                return null;
             // analise if we got an authenticated user            
             return (ctx.CurrentUser == null) ? new Nancy.Responses.HtmlResponse (HttpStatusCode.Unauthorized) : null;
         }
