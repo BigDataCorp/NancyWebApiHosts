@@ -90,16 +90,17 @@ namespace NancyHostLib
             if (loadedAssemblies.Count == 0)
             {
                 // register assembly resolution for our loaded modules
+                AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
                 AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
             }
 
             // load current assemblies code to register their types and avoid duplicity
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies ())
             {
-                if (!a.GlobalAssemblyCache && !a.IsDynamic && !loadedAssemblies.ContainsKey (a.FullName))
+                if (!a.IsDynamic && !loadedAssemblies.ContainsKey (a.FullName))
                 {
                     loadedAssemblies[a.FullName] = a;
-                    if (!blackListedAssemblies.Contains (ParseAssemblyName (a.FullName)))
+                    if (!a.GlobalAssemblyCache && !blackListedAssemblies.Contains (ParseAssemblyName (a.FullName)))
                         validAssemblies.Add (a);
                 }
             }
@@ -279,20 +280,21 @@ namespace NancyHostLib
             Assembly a;
             if (!loadedAssemblies.TryGetValue (args.Name, out a))
             {
+                var aName = new AssemblyName (args.Name);
                 if (!args.RequestingAssembly.IsDynamic && !args.RequestingAssembly.GlobalAssemblyCache)
                 {
-                    var path = Path.Combine (Path.GetDirectoryName (args.RequestingAssembly.Location), ParseAssemblyName(args.Name));
+                    var path = Path.Combine (Path.GetDirectoryName (args.RequestingAssembly.Location), aName.Name);
                     if (File.Exists (path + ".dll"))
                         LoadAssembly (new FileInfo (path + ".dll"), null);
                     else if (File.Exists (path + ".exe"))
                         LoadAssembly (new FileInfo (path + ".exe"), null);
                     loadedAssemblies.TryGetValue (args.Name, out a);
                 }
-                if (a == null)
-                {
-                    throw new InvalidOperationException (
-                        String.Format ("Assembly not available in plugin/modules path; assembly name '{0}'.", args.Name));                        
-                }
+                //if (a == null)
+                //{
+                //    throw new InvalidOperationException (
+                //        String.Format ("Assembly not available in plugin/modules path; assembly name '{0}'.", args.Name));                        
+                //}
             }
             return a;
         }
