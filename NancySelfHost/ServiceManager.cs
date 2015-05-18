@@ -98,9 +98,9 @@ namespace NancySelfHost
         }
 
         private void InitializeWebInterface ()
-        {            
-            WebServer.Start (SystemGlobals.Options.Get<int> ("webInterfacePort", 8080), null, SystemGlobals.Options.Get ("webVirtualDirectoryPath", "/nancyselfhost"), SystemGlobals.Options.Get ("webOpenFirewallExceptions", false));
-            if (Environment.UserInteractive && SystemGlobals.Options.Get<bool> ("webInterfaceDisplayOnBrowserOnStart", false))
+        {
+            WebServer.Start (SystemUtils.Options.Get<int> ("webInterfacePort", 8080), null, SystemUtils.Options.Get ("webVirtualDirectoryPath", "/nancyselfhost"), SystemUtils.Options.Get ("webOpenFirewallExceptions", false));
+            if (Environment.UserInteractive && SystemUtils.Options.Get<bool> ("webInterfaceDisplayOnBrowserOnStart", false))
             {
                 DisplayPageOnBrowser (WebServer.Address);
             }

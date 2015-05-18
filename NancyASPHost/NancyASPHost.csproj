@@ -71,7 +71,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Global.asax" />
-    <Content Include="favicon.ico" />
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>
@@ -79,7 +78,6 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Controllers\TestModule.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="packages.config" />
@@ -93,6 +91,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\NancyApiHost.Interfaces\NancyApiHost.Interfaces.csproj">
+      <Project>{bb12935e-05c5-4f6b-b8dc-05cb859c399e}</Project>
+      <Name>NancyApiHost.Interfaces</Name>
+    </ProjectReference>
     <ProjectReference Include="..\NancyHostLib\NancyHostLib.csproj">
       <Project>{d7e84cd2-9be3-4c36-acca-b4773c45b075}</Project>
       <Name>NancyHostLib</Name>

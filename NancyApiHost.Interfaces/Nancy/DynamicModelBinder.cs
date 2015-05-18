@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Nancy.ModelBinding;
 using Nancy;
-using Newtonsoft.Json.Linq;
 
-namespace NancyHostLib
+namespace NancyApiHost
 {    
     /// <summary>
     /// based on https://gist.github.com/thecodejunkie/5521941

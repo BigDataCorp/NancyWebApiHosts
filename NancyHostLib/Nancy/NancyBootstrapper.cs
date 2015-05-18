@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using NancyApiHost.Security;
 
 namespace NancyHostLib
 {
@@ -64,14 +65,13 @@ namespace NancyHostLib
                     ctx.Response.WithHeader ("Access-Control-Allow-Origin", "*")
                         .WithHeader ("Access-Control-Allow-Methods", "POST,GET")
                         .WithHeader ("Access-Control-Allow-Headers", "Accept, Origin, Content-type");
-                    // to improve thethrouput, lets signal the client to close and reopen the connection per request
-                    ctx.Response.Headers["Connection"] = "close";
                 }
             });
 
             // global authentication
-            enableAuthentication = SystemGlobals.Options.Get ("EnableAuthentication", false);
+            enableAuthentication = SystemUtils.Options.Get ("EnableAuthentication", false);
             pipelines.BeforeRequest.AddItemToStartOfPipeline (AllResourcesAuthentication);
+            accessControlContext = ModuleContainer.Instance.GetInstanceOf<IAccessControlModule> ();
 
             // gzip compression            
             pipelines.AfterRequest.AddItemToEndOfPipeline (NancyCompressionExtenstion.CheckForCompression);
@@ -97,9 +97,36 @@ namespace NancyHostLib
             container.Register<JsonSerializer, CustomJsonSerializer> ();
         }
 
+        /// ***********************
+        /// Custom Path provider
+        /// ***********************
+        public class PathProvider : IRootPathProvider
+        {
+            static string _path = SetRootPath (AppDomain.CurrentDomain.BaseDirectory);//System.IO.Path.Combine (AppDomain.CurrentDomain.BaseDirectory, @"site");//
+
+            public string GetRootPath ()
+            {
+                return _path;
+            }
+
+            public static string SetRootPath (string fullPath)
+            {
+                fullPath = fullPath.Replace ('\\', '/');
+                if (fullPath.EndsWith ("/bin/"))
+                    fullPath = fullPath.Replace ("/bin/", "/");
+                _path = fullPath;
+                return _path;
+            }
+        }
+
+        protected override IRootPathProvider RootPathProvider
+        {
+            get { return new PathProvider (); }
+        }
+
         #region *   Authentication  *
 
-        BDCAccessControlClient.AccessControl accessControlContext = new BDCAccessControlClient.AccessControl ();
+        IAccessControlModule accessControlContext = null;
 
         /// <summary>
         /// Allow anonymous access only to the login page
@@ -115,15 +142,14 @@ namespace NancyHostLib
                 return null;
 
             // search for a session id or token
-            BDCAccessControlClient.UserInfoResponse user = null;
+            if (accessControlContext == null)
+                return null;
             
             // 1. check for token authentication: Header["Authorization"] with the sessionId/token 
             string authToken = ctx.Request.Headers.Authorization;
             if (authToken != null && authToken.Length > 0)
             {
-                user = accessControlContext.GetUser (authToken);
-                if (user.Result)
-                    ctx.CurrentUser = new UserIdentityModel (authToken, user.UserInfo);
+                ctx.CurrentUser = accessControlContext.GetUserFromToken (authToken);
             }
 
             // 2. check for token authentication: query parameter or form unencoded parameter
@@ -132,22 +158,23 @@ namespace NancyHostLib
                 authToken = TryGetRequestParameter (ctx, "token");
                 if (authToken != null && authToken.Length > 0)
                 {
-                    user = accessControlContext.GetUser (authToken);
-                    if (user.Result)
-                        ctx.CurrentUser = new UserIdentityModel (authToken, user.UserInfo);
+                    ctx.CurrentUser = accessControlContext.GetUserFromToken (authToken);
                 }
             }
 
-            // 3. check login/password
+            // 3. finally, check if login and password were passed as parameters
             if (ctx.CurrentUser == null)
             {
                 var password = TryGetRequestParameter (ctx, "password");
                 var login = TryGetRequestParameter (ctx, "login");
-                if (!String.IsNullOrEmpty (password) && !String.IsNullOrEmpty (login))
+                if (!String.IsNullOrEmpty (password))
                 {
-                    user = accessControlContext.OpenSession (login, password, 60);
-                    if (user.Result)
-                        ctx.CurrentUser = new UserIdentityModel (user.UserInfo.SessionId, user.UserInfo);
+                    if (String.IsNullOrEmpty (login))
+                        login = TryGetRequestParameter (ctx, "username");
+                    if (!String.IsNullOrEmpty (login))
+                        authToken = accessControlContext.OpenSession (login, password, TimeSpan.FromMinutes (60));
+                    if (!String.IsNullOrEmpty (authToken))
+                        ctx.CurrentUser = accessControlContext.GetUserFromToken (authToken);
                 }
             }
 

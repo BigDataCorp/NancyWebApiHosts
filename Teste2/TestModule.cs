@@ -1,9 +1,7 @@
 ﻿using Nancy;
+using NancyApiHost.Security;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Teste2
 {
@@ -23,9 +21,7 @@ namespace Teste2
                 return "User Not Authenticated";
 
             // use dynamic to access our user!
-            dynamic user = ((dynamic)Context.CurrentUser).User;
-            // we can also cast Dictionary to get our parameters!
-            var parameters = (Dictionary<string,string>)user.Parameters;
+            var user = Context.CurrentUser as NancyHostUser;           
 
             // let's format this user to display on screen !
             return user;
@@ -38,14 +34,12 @@ namespace Teste2
                 return "User Not Authenticated";
 
             // use dynamic to access our user!
-            dynamic user = ((dynamic)Context.CurrentUser).User;
-            // we can also cast Dictionary to get our parameters!
-            var parameters = (Dictionary<string, string>)user.Parameters;
+            var user = Context.CurrentUser as NancyHostUser;            
 
             // let's format this user to display on screen !
-            return "Login: " + user.Login +
+            return "Login: " + user.UserName +
                    "<br/>Parameters: <br/> &nbsp; &nbsp; " +
-                   String.Join ("<br/> &nbsp; &nbsp; ", parameters.Select (i => i.Key + ": " + i.Value));
+                   String.Join ("<br/> &nbsp; &nbsp; ", user.Options.Data.Select (i => i.Key + ": " + i.Value));
         }
     }
 }

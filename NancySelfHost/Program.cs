@@ -1,18 +1,15 @@
 ﻿using NancyHostLib;
+using NancyHostLib.SimpleHelpers;
 using NLog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Topshelf;
 
 namespace NancySelfHost
 {
     class Program
     {
-        public static FlexibleOptions ProgramOptions { get; private set; }
-
         static bool useTopshelfService = true;
         static HashSet<string> topshelfArguments = new HashSet<string> (StringComparer.OrdinalIgnoreCase) { "help", "install", "uninstall", "start", "stop" };
 
@@ -24,10 +21,11 @@ namespace NancySelfHost
             {
                 AppDomain.CurrentDomain.ProcessExit += new EventHandler (CurrentDomain_ProcessExit);
 
+                // detect if there is any topshelf specific arguments
                 useTopshelfService = Console.IsOutputRedirected || args == null || args.Length == 0 || args.Any (i => topshelfArguments.Contains (i));
 
-                // system initialization
-                DefaultProgramInitialization (args);
+                // load configurations and initialize log
+                SystemUtils.Initialize (args);
 
                 // start execution
                 Execute ();
@@ -40,21 +38,6 @@ namespace NancySelfHost
 
             // set success exit code
             ConsoleUtils.CloseApplication (0, false);
-        }
-
-        private static void DefaultProgramInitialization (string[] args)
-        {            
-            // load configurations and
-            // initialize program
-            ProgramOptions = SystemGlobals.Initialize (args);
-
-            // display program initialization header
-            if (!Console.IsOutputRedirected)
-            {
-                ConsoleUtils.DisplayHeader (
-                    typeof (Program).Namespace,
-                    "Options: " + (ProgramOptions == null ? "none" : "\n#    " + String.Join ("\n#    ", ProgramOptions.Options.Select (i => i.Key + "=" + i.Value))));
-            }
         }
 
         private static void CurrentDomain_ProcessExit (object sender, EventArgs e)
@@ -78,7 +61,9 @@ namespace NancySelfHost
                 ConsoleUtils.DisplayHeader (ServiceManager.DefaultServiceDisplayName);
             }
             
-            // run
+            // run with topshelf if possible
+            // since topshelf argument parsing is very strict and unforgiving, 
+            // lets use the more flexible SimpleHelpers.ConsoleUtils command line parsing instead.
             if (useTopshelfService)
             {
                 InitializeService ();
@@ -140,7 +125,8 @@ namespace NancySelfHost
                     });
                 });
                 
-                foreach (var k in ProgramOptions.Options)
+                // try to avoid topshelf command line parser causing problems/conflict with our custom parser...
+                foreach (var k in SystemUtils.Options.Options)
                 {
                     if (!topshelfArguments.Contains (k.Key))
                     {
@@ -152,7 +138,7 @@ namespace NancySelfHost
                 host.RunAsLocalSystem ();
                 // Service Start Modes
                 host.StartAutomatically ();
-                
+
                 // description for the winservice to be use in the windows service monitor
                 host.SetDescription (ServiceManager.DefaultServiceDescription);
                 // display name for the winservice to be use in the windows service monitor
@@ -183,7 +169,7 @@ namespace NancySelfHost
             });
             if (exitCode != 0)
             {
-                SystemGlobals.LogError ("Service Error", "" + exitCode);
+                SystemUtils.LogError ("Service Error", "" + exitCode);
             }
         }
     }

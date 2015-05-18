@@ -49,6 +49,16 @@
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NancyApiHost.Interfaces\NancyApiHost.Interfaces.csproj">
+      <Project>{bb12935e-05c5-4f6b-b8dc-05cb859c399e}</Project>
+      <Name>NancyApiHost.Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NancyApiHost.Security\NancyApiHost.Security.csproj">
+      <Project>{a51a1214-b6b2-49dd-9803-92339812f118}</Project>
+      <Name>NancyApiHost.Security</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -13,7 +13,7 @@ namespace NancyASPHost
         protected void Application_Start (object sender, EventArgs e)
         {
             // ensure system globals is initialized
-            NancyHostLib.SystemGlobals.Initialize ();
+            NancyHostLib.SystemUtils.Initialize ();
         }
 
         protected void Session_Start (object sender, EventArgs e)
