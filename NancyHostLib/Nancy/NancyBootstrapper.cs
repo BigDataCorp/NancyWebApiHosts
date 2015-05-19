@@ -47,7 +47,12 @@ namespace NancyHostLib
             StaticConfiguration.DisableErrorTraces = true;
             StaticConfiguration.EnableRequestTracing = false;
             Nancy.Json.JsonSettings.MaxJsonLength = 20 * 1024 * 1024;
+
+#if DEBUG
+            StaticConfiguration.DisableErrorTraces = false;
+            StaticConfiguration.EnableRequestTracing = true;
             
+#endif
             // log any errors
             pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
             {
@@ -59,7 +64,7 @@ namespace NancyHostLib
             pipelines.AfterRequest.AddItemToEndOfPipeline ((ctx) =>
             {
                 // CORS Enable
-                if (ctx != null && ctx.Response != null && ctx.Response.ContentType != null && 
+                if (ctx != null && ctx.Response != null && ctx.Response.ContentType != null &&
                     (ctx.Response.ContentType.Contains ("json") || ctx.Response.ContentType.Contains ("xml")))
                 {
                     ctx.Response.WithHeader ("Access-Control-Allow-Origin", "*")
@@ -73,17 +78,31 @@ namespace NancyHostLib
             pipelines.BeforeRequest.AddItemToStartOfPipeline (AllResourcesAuthentication);
             accessControlContext = ModuleContainer.Instance.GetInstanceOf<IAccessControlModule> ();
 
-            // gzip compression            
+            // gzip compression
             pipelines.AfterRequest.AddItemToEndOfPipeline (NancyCompressionExtenstion.CheckForCompression);
-            
-            base.ApplicationStartup (container, pipelines);            
+
+            base.ApplicationStartup (container, pipelines);
         }
 
-        protected override void RequestStartup(Nancy.TinyIoc.TinyIoCContainer container, Nancy.Bootstrapper.IPipelines pipelines, NancyContext context)
-        {            
+        protected override void RequestStartup (Nancy.TinyIoc.TinyIoCContainer container, Nancy.Bootstrapper.IPipelines pipelines, NancyContext context)
+        {
             base.RequestStartup (container, pipelines, context);
         }
 
+        /// <summary>
+        /// This method sets the password for the NancyFx diagnostics page when its is enabled
+        /// To enable the diagnostics page: comment the disable call "Nancy.Diagnostics.DiagnosticsHook.Disable (pipelines);" at "ApplicationStartup" method
+        /// To access diagnostics page: http://<address-of-your-application>/_Nancy/
+        /// </summary>
+        protected override Nancy.Diagnostics.DiagnosticsConfiguration DiagnosticsConfiguration
+        {
+            get { return new Nancy.Diagnostics.DiagnosticsConfiguration { Password = @"password" }; }
+        }
+
+        /// <summary>
+        /// Lets adjust default container settings.
+        /// Add this converter to the default settings of Newtonsoft JSON.NET.
+        /// </summary>
         protected override void ConfigureApplicationContainer (Nancy.TinyIoc.TinyIoCContainer container)
         {
             //base.ConfigureApplicationContainer (container);
@@ -112,8 +131,13 @@ namespace NancyHostLib
             public static string SetRootPath (string fullPath)
             {
                 fullPath = fullPath.Replace ('\\', '/');
-                if (fullPath.EndsWith ("/bin/"))
-                    fullPath = fullPath.Replace ("/bin/", "/");
+                if (fullPath.Length == 0 || fullPath[fullPath.Length - 1] != '/')
+                    fullPath += '/';
+                if (fullPath.EndsWith ("/bin/", StringComparison.OrdinalIgnoreCase))
+                {
+                    var p = fullPath.LastIndexOf ("/bin/", StringComparison.OrdinalIgnoreCase);
+                    fullPath = fullPath.Substring (0, p + 1);                    
+                }
                 _path = fullPath;
                 return _path;
             }
@@ -136,7 +160,7 @@ namespace NancyHostLib
             // if authenticated, go on...
             if (ctx.CurrentUser != null)
                 return null;
-            
+
             // if login module, go on... (here we can put other routes without authentication)
             if (ctx.Request.Url.Path.IndexOf ("/login", StringComparison.OrdinalIgnoreCase) >= 0)
                 return null;
@@ -144,7 +168,7 @@ namespace NancyHostLib
             // search for a session id or token
             if (accessControlContext == null)
                 return null;
-            
+
             // 1. check for token authentication: Header["Authorization"] with the sessionId/token 
             string authToken = ctx.Request.Headers.Authorization;
             if (authToken != null && authToken.Length > 0)
@@ -165,10 +189,10 @@ namespace NancyHostLib
             // 3. finally, check if login and password were passed as parameters
             if (ctx.CurrentUser == null)
             {
-                var password = TryGetRequestParameter (ctx, "password");
-                var login = TryGetRequestParameter (ctx, "login");
+                var password = TryGetRequestParameter (ctx, "password");                
                 if (!String.IsNullOrEmpty (password))
                 {
+                    var login = TryGetRequestParameter (ctx, "login");
                     if (String.IsNullOrEmpty (login))
                         login = TryGetRequestParameter (ctx, "username");
                     if (!String.IsNullOrEmpty (login))
@@ -186,9 +210,9 @@ namespace NancyHostLib
         }
 
         #endregion
-        
+
         #region *   JSON serialization options  *
-        
+
         /// ***********************
         /// Custom Json net options
         /// ***********************
@@ -217,7 +241,7 @@ namespace NancyHostLib
             int i = name.IndexOf (',');
             return (i > 0) ? name.Substring (0, i) : name;
         }
-        
+
         static string GetLastPathPart (string path)
         {
             // reduce length to disregard ending '\\' or '/'
@@ -238,7 +262,7 @@ namespace NancyHostLib
         }
 
         static string TryGetRequestParameter (NancyContext ctx, string parameter)
-        {            
+        {
             object p;
             if (((DynamicDictionary)ctx.Request.Query).TryGetValue (parameter, out p) && p != null)
             {
@@ -250,7 +274,7 @@ namespace NancyHostLib
                 return p.ToString ();
             }
 
-            if (ctx.Parameters != null && ctx.Parameters is DynamicDictionary && 
+            if (ctx.Parameters != null && ctx.Parameters is DynamicDictionary &&
                 ((DynamicDictionary)ctx.Parameters).TryGetValue (parameter, out p) && p != null)
             {
                 return p.ToString ();
@@ -262,5 +286,5 @@ namespace NancyHostLib
         #endregion
 
     }
-        
+
 }
