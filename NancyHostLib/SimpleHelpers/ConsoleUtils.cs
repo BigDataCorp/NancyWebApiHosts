@@ -56,7 +56,7 @@ namespace NancyHostLib.SimpleHelpers
 
             ProgramOptions = CheckCommandLineParams (args, thrownOnError);
 
-            if (ProgramOptions.Get<bool> ("help", false))
+            if (ProgramOptions.Get<bool> ("help", false) || ProgramOptions.Get<bool> ("h", false))
             {
                 show_help ("");
                 CloseApplication (0, true);
@@ -66,7 +66,7 @@ namespace NancyHostLib.SimpleHelpers
             if (!Console.IsOutputRedirected)
             {
                 ConsoleUtils.DisplayHeader (
-                    typeof(ConsoleUtils).Namespace.Replace(".SimpleHelpers", ""),
+                    typeof (ConsoleUtils).Namespace.Replace (".SimpleHelpers", ""),
                     "options: " + (ProgramOptions == null ? "none" : "\n#    " + String.Join ("\n#    ", ProgramOptions.Options.Select (i => i.Key + "=" + i.Value))));
             }
             else
@@ -97,7 +97,7 @@ namespace NancyHostLib.SimpleHelpers
 
             // more concurrent connections to the same IP (avoid throttling) and other tuning
             // http://blogs.msdn.com/b/jpsanders/archive/2009/05/20/understanding-maxservicepointidletime-and-defaultconnectionlimit.aspx
-            System.Net.ServicePointManager.DefaultConnectionLimit = 1024; // more concurrent connections to the same IP (avoid throttling)            
+            System.Net.ServicePointManager.DefaultConnectionLimit = 1024; // more concurrent connections to the same IP (avoid throttling)
         }
 
         static string _logFileName;
@@ -111,13 +111,13 @@ namespace NancyHostLib.SimpleHelpers
             // default parameters initialization from config file
             if (String.IsNullOrEmpty (logFileName))
                 logFileName = System.Configuration.ConfigurationManager.AppSettings["logFilename"];
-			if (String.IsNullOrEmpty (logFileName))
-                logFileName = ("${basedir}/log/" + typeof (ConsoleUtils).Namespace.Replace(".SimpleHelpers", "") + ".log");
+            if (String.IsNullOrEmpty (logFileName))
+                logFileName = ("${basedir}/log/" + typeof (ConsoleUtils).Namespace.Replace (".SimpleHelpers", "") + ".log");
             if (String.IsNullOrEmpty (logLevel))
                 logLevel = System.Configuration.ConfigurationManager.AppSettings["logLevel"] ?? "Info";
 
             // check if log was initialized with same options
-            if (_logFileName == logFileName && _logLevel == logLevel) 
+            if (_logFileName == logFileName && _logLevel == logLevel)
                 return;
 
             // save current log configuration
@@ -192,7 +192,7 @@ namespace NancyHostLib.SimpleHelpers
 
             // set exit code and exit
             System.Environment.ExitCode = exitCode;
-            if (exitApplication) 
+            if (exitApplication)
                 System.Environment.Exit (exitCode);
         }
 
@@ -244,7 +244,7 @@ namespace NancyHostLib.SimpleHelpers
                 bool configAbortOnError = mergedOptions.Get ("configAbortOnError", true);
                 if (!String.IsNullOrWhiteSpace (externalConfigFile))
                 {
-                    foreach (var file in externalConfigFile.Trim(' ', '\'', '"', '[', ']').Split (',', ';'))
+                    foreach (var file in externalConfigFile.Trim (' ', '\'', '"', '[', ']').Split (',', ';'))
                     {
                         LogManager.GetCurrentClassLogger ().Info ("Loading configuration file from {0} ...", externalConfigFile);
                         externalLoadedOptions = FlexibleOptions.Merge (externalLoadedOptions, LoadExtenalConfigurationFile (file.Trim (' ', '\'', '"'), configAbortOnError));
@@ -292,7 +292,7 @@ namespace NancyHostLib.SimpleHelpers
                         argsOptions.Set (arg.Substring (0, p).Trim ().TrimStart ('-', '/'), arg.Substring (p + 1).Trim ());
                         lastTag = null;
                         openTag = false;
-                    }                    
+                    }
                     // search for tag stating with special character
                     else if (hasStartingMarker)
                     {
@@ -305,7 +305,7 @@ namespace NancyHostLib.SimpleHelpers
                     {
                         argsOptions.Set (lastTag, arg.Trim ());
                         openTag = false;
-                    }                    
+                    }
                 }
             }
             return argsOptions;
@@ -338,7 +338,7 @@ namespace NancyHostLib.SimpleHelpers
                     LogManager.GetCurrentClassLogger ().Error (ex);
                     return new FlexibleOptions ();
                 }
-            }            
+            }
         }
 
         private static FlexibleOptions LoadFileSystemConfigurationFile (string filePath, bool thrownOnError)
@@ -352,7 +352,7 @@ namespace NancyHostLib.SimpleHelpers
                     {
                         text = file.ReadToEnd ();
                     }
-                    return parseFile (client.DownloadString (filePath));                    
+                    return parseFile (client.DownloadString (filePath));
                 }
                 catch (Exception ex)
                 {
@@ -369,7 +369,7 @@ namespace NancyHostLib.SimpleHelpers
             var options = new FlexibleOptions ();
 
             // detect xml
-            if (content.TrimStart().StartsWith ("<"))
+            if (content.TrimStart ().StartsWith ("<"))
             {
                 var xmlDoc = System.Xml.Linq.XDocument.Parse (content);
                 var root = xmlDoc.Descendants ("config").FirstOrDefault ();
@@ -394,9 +394,11 @@ namespace NancyHostLib.SimpleHelpers
 
         private static void show_help (string message, bool isError = false)
         {
-            var files = new string[] { "Help.md", "Configuration.md" };
-            var file = "README.md";
+            // files with help text in order of priority
+            var files = new string[] { "help", "help.txt", "Configuration.md", "README.md" };
             var text = "Help command line arguments";
+            string file = files.FirstOrDefault ();
+            // check which file exists
             foreach (var f in files)
             {
                 if (System.IO.File.Exists (f))
@@ -408,21 +410,22 @@ namespace NancyHostLib.SimpleHelpers
                     file = ".docs/" + f; break;
                 }
             }
-
+            // try to load help text
             if (System.IO.File.Exists (file))
                 text = ReadFileAllText (file);
-            if (message == null) return;
+
+            // display message parameter
             if (isError)
             {
                 Console.Error.WriteLine (message);
-                Console.Error.WriteLine (text);
             }
             else
             {
                 Console.WriteLine (message);
-                Console.WriteLine (text);
             }
-            CloseApplication (0, true);
+
+            // display help text
+            Console.Error.WriteLine (text);
         }
 
         public static string ReadFileAllText (string filename)

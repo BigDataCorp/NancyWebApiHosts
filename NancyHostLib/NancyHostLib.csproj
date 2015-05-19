@@ -72,7 +72,7 @@
     <Compile Include="SystemUtils.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Help.md" />
+    <None Include="Configuration.md" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
