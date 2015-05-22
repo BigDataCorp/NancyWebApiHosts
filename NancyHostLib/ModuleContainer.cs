@@ -9,7 +9,7 @@ namespace NancyHostLib
 {
     public class ModuleContainer
     {
-        public delegate object InstanceFactory (params object[] args);
+        public delegate object InstanceFactory ();
 
         class ModuleInfo
         {
@@ -376,7 +376,7 @@ namespace NancyHostLib
         /// <returns></returns>
         private InstanceFactory CreateFactory (Type type)
         {
-            return CreateFactory (type.GetConstructors ().OrderByDescending (i => i.GetParameters ().Length).First ());
+            return CreateFactory (type.GetConstructors ().Where (i => i.GetParameters ().Length == 0).First ());
         }
 
         /// <summary>

@@ -43,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AccessControlFactory.cs" />
     <Compile Include="NancyHostUser.cs" />
     <Compile Include="IAccessControlModule.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

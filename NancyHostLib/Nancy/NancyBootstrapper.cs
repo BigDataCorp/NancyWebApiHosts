@@ -50,9 +50,9 @@ namespace NancyHostLib
 
 #if DEBUG
             StaticConfiguration.DisableErrorTraces = false;
-            StaticConfiguration.EnableRequestTracing = true;
-            
+            StaticConfiguration.EnableRequestTracing = true;            
 #endif
+
             // log any errors
             pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
             {
@@ -77,6 +77,10 @@ namespace NancyHostLib
             enableAuthentication = SystemUtils.Options.Get ("EnableAuthentication", false);
             pipelines.BeforeRequest.AddItemToStartOfPipeline (AllResourcesAuthentication);
             accessControlContext = ModuleContainer.Instance.GetInstanceOf<IAccessControlModule> ();
+            if (accessControlContext != null)
+            {
+                AccessControlFactory.RegisterFactory (ModuleContainer.Instance.GetConstructor (accessControlContext.GetType ()).Invoke);
+            }
 
             // gzip compression
             pipelines.AfterRequest.AddItemToEndOfPipeline (NancyCompressionExtenstion.CheckForCompression);
