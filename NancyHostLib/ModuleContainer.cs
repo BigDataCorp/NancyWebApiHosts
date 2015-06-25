@@ -110,7 +110,7 @@ namespace NancyHostLib
             // check the directory exists
             foreach (var folder in modulesFolder)
             {
-                var path = prepareFilePath (folder);
+                var path = PrepareFilePath (folder);
                 if (path == null || parsedAssemblies.Contains (path.Item1 + path.Item2))
                     continue;
                 parsedAssemblies.Add (path.Item1 + path.Item2);
@@ -316,7 +316,7 @@ namespace NancyHostLib
         /// <summary>
         /// Adjust file path.
         /// </summary>
-        private static Tuple<string,string> prepareFilePath (string path)
+        public static Tuple<string,string> PrepareFilePath (string path)
         {
             if (String.IsNullOrWhiteSpace (path))
                 return null;

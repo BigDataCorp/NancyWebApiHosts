@@ -49,6 +49,15 @@ namespace NancyHostLib
                 LogError ("error parsing module: " + Options.Get ("Module"), ex);
             }
 
+            // adjust appdomain
+#pragma warning disable 0618
+            AppDomain.CurrentDomain.SetupInformation.ShadowCopyFiles = "true";
+            AppDomain.CurrentDomain.SetShadowCopyPath (String.Join (";",
+                 AppDomain.CurrentDomain.BaseDirectory,
+                  AppDomain.CurrentDomain.BaseDirectory + "/bin",
+                  String.Join (";", folders.Select (i => ModuleContainer.PrepareFilePath (i).Item1))));
+#pragma warning restore 0618
+
             // load
             ModuleContainer.Instance.LoadModules (folders.ToArray ());
 
