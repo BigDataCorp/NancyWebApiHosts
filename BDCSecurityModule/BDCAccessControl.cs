@@ -1,10 +1,6 @@
 ﻿using NancyApiHost.Security;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NancyApiHost.SimpleHelpers;
+using NancyApiHost.Interfaces.SimpleHelpers;
 
 namespace BDCSecurityModule
 {

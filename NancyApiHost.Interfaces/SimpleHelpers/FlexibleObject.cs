@@ -33,7 +33,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NancyApiHost.SimpleHelpers
+namespace NancyApiHost.Interfaces.SimpleHelpers
 {
     public class FlexibleObject
     {
@@ -61,6 +61,15 @@ namespace NancyApiHost.SimpleHelpers
         {
             get { return _caseInsensitive; }
             set { ChangeStringComparer (value); }
+        }
+		
+		/// <summary>
+        /// Gets or sets the <see cref="string" /> with the specified key.
+        /// </summary>
+        public string this[string key]
+        {
+            get { return Get (key); }
+            set { Set (key, value); }
         }
 
         /// <summary>

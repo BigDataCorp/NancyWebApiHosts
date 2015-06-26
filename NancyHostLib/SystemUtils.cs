@@ -116,7 +116,7 @@ namespace NancyHostLib
                 var callingMethod = new System.Diagnostics.StackFrame (1).GetMethod ();
                 msg = callingMethod.DeclaringType.Name + "." + callingMethod.Name;
             }
-            NLog.LogManager.GetLogger (tag).Error (msg, ex);
+            NLog.LogManager.GetLogger (tag).Error (ex, msg);
         }
 
         public static void LogError (Exception ex)
@@ -132,7 +132,7 @@ namespace NancyHostLib
                 var callingMethod = new System.Diagnostics.StackFrame (1).GetMethod ();
                 msg = callingMethod.DeclaringType.Name + "." + callingMethod.Name;
             }
-            NLog.LogManager.GetCurrentClassLogger ().Error (msg, ex);
+            NLog.LogManager.GetCurrentClassLogger ().Error (ex, msg);
         }
 
         public static void LogDebug (string tag, string message)

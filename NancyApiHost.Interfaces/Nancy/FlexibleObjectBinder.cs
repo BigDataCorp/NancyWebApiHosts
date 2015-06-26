@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Nancy.ModelBinding;
 using Nancy;
-using NancyApiHost.SimpleHelpers;
+using NancyApiHost.Interfaces.SimpleHelpers;
 
 namespace NancyApiHost
 {    

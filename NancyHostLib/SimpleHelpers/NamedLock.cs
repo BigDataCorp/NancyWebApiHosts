@@ -105,7 +105,7 @@ namespace NancyHostLib.SimpleHelpers
 
         private object m_padlock;
 
-        private volatile bool m_locked = false;
+        private bool m_locked = false;
         
         /// <summary>
         /// Check if a lock was aquired.

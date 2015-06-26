@@ -24,8 +24,8 @@ namespace NancySelfHost
         public const string DefaultServiceDescription = "BigData NancySelfHost service";
 
         private Logger _logger = LogManager.GetLogger ("NancySelfHost");
-        private System.Threading.Timer _runningTask = null;
-        private static int _running = 0;
+        // private System.Threading.Timer _runningTask = null;
+        // private static int _running = 0;
 
         /// <summary>
         /// Starts the service.

@@ -1,9 +1,5 @@
-﻿using NancyApiHost.SimpleHelpers;
-using System;
+﻿using NancyApiHost.Interfaces.SimpleHelpers;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NancyApiHost.Security
 {    
