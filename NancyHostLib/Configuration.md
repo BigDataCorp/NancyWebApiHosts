@@ -137,4 +137,35 @@ Default value: `false`
 If the console application should ask for user input at the end, before exiting the application.
 
 
+### EnableAuthentication
+`EnableAuthentication=<bool>`
 
+Default value: `false`
+
+
+### Module
+`module=<string>`
+
+Example:
+`module='c:/temp/myCustomModule.dll'`
+
+Will automatically load this file
+
+
+
+### ModulesFolder
+`ModulesFolder=<string>`
+
+Default value: `${basedir}/modules/`
+
+Or a file path: `${basedir}/modules/*Module.dll`
+
+
+
+### DebugMode
+`debugMode=<boolean>`
+
+Default value: `false`
+
+Enable nancy request tracing and disable view caching to allow html page to be edited and tested.
+Userfull for testing.

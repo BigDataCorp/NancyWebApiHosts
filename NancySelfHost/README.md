@@ -35,6 +35,12 @@ NancySelfHost.exe uninstall
 
 ## Configuration
 
+### EnableAuthentication
+`EnableAuthentication=<bool>`
+
+Default value: `false`
+
+
 ### Module
 `module=<string>`
 
@@ -42,7 +48,6 @@ Example:
 `module='c:/temp/myCustomModule.dll'`
 
 Will automatically load this file
-
 
 
 ### ModulesFolder
@@ -53,11 +58,13 @@ Default value: `${basedir}/modules/`
 Or a file path: `${basedir}/modules/*Module.dll`
 
 
-
-### EnableAuthentication
-`EnableAuthentication=<bool>`
+### DebugMode
+`debugMode=<boolean>`
 
 Default value: `false`
+
+Enable nancy request tracing and disable view caching to allow html page to be edited and tested.
+Userfull for testing.
 
 
 ### LogLevel
@@ -136,4 +143,10 @@ Default value: `false`
 If enabled, will try to open the browser with the web interface start page.
 
 
+### debugMode
+`debugMode=<boolean>`
 
+Default value: `false`
+
+Enable nancy request tracing and disable view caching to allow html page to be edited and tested.
+Userfull for testing.
