@@ -41,24 +41,45 @@ namespace NancyHostLib
 
         protected override void ApplicationStartup (Nancy.TinyIoc.TinyIoCContainer container, Nancy.Bootstrapper.IPipelines pipelines)
         {
-            // configure nancy
-            Nancy.Diagnostics.DiagnosticsHook.Disable (pipelines);
-            StaticConfiguration.CaseSensitive = false;
-            StaticConfiguration.DisableErrorTraces = true;
-            StaticConfiguration.EnableRequestTracing = false;
+            // configure nancy            
+            StaticConfiguration.CaseSensitive = false;            
             Nancy.Json.JsonSettings.MaxJsonLength = 20 * 1024 * 1024;
+
+            // check if the debugmode flag is enabled
+            if (!SystemUtils.Options.Get ("debugMode", false))
+            {
+                Nancy.Diagnostics.DiagnosticsHook.Disable (pipelines);
+                StaticConfiguration.DisableErrorTraces = true;
+                StaticConfiguration.EnableRequestTracing = false;
+
+                // log any errors only as debug 
+                pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
+                {
+                    logger.Debug (ex);
+                    return null;
+                });
+            }
+            else
+            {
+                StaticConfiguration.DisableErrorTraces = false;
+                StaticConfiguration.EnableRequestTracing = true;
+                StaticConfiguration.Caching.EnableRuntimeViewDiscovery = true;
+                StaticConfiguration.Caching.EnableRuntimeViewUpdates = true;                
+
+                // log any errors as errors
+                pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
+                {
+                    logger.Error (ex);
+                    return null;
+                });
+            }
 
 #if DEBUG
             StaticConfiguration.DisableErrorTraces = false;
-            StaticConfiguration.EnableRequestTracing = true;            
+            StaticConfiguration.EnableRequestTracing = true;
+            StaticConfiguration.Caching.EnableRuntimeViewDiscovery = true;
+            StaticConfiguration.Caching.EnableRuntimeViewUpdates = true;
 #endif
-
-            // log any errors
-            pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
-            {
-                logger.Error (ex);
-                return null;
-            });
 
             // some additional response configuration
             pipelines.AfterRequest.AddItemToEndOfPipeline ((ctx) =>
