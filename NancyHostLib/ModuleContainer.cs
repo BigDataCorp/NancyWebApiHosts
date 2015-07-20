@@ -9,7 +9,7 @@ namespace NancyHostLib
 {
     public class ModuleContainer
     {
-        public delegate object InstanceFactory ();
+        public delegate object InstanceFactory (params object[] args);
 
         class ModuleInfo
         {
@@ -391,40 +391,34 @@ namespace NancyHostLib
             ParameterInfo[] paramsInfo = ctor.GetParameters ();
             LambdaExpression lambda;
 
-            if (paramsInfo.Length > 0)
+            // prepare parameters            
+            //create a single param of type object[]
+            var param = Expression.Parameter (typeof (object[]), "args");
+
+            var argsExp = new Expression[paramsInfo.Length];
+
+            //pick each arg from the params array 
+            //and create a typed expression of them
+            for (int i = 0; i < paramsInfo.Length; i++)
             {
-                // prepare parameters            
-                //create a single param of type object[]
-                var param = Expression.Parameter (typeof (object[]), "args");
+                var index = Expression.Constant (i);
+                Type paramType = paramsInfo[i].ParameterType;
 
-                var argsExp = new Expression[paramsInfo.Length];
+                var paramAccessorExp = Expression.ArrayIndex (param, index);
 
-                //pick each arg from the params array 
-                //and create a typed expression of them
-                for (int i = 0; i < paramsInfo.Length; i++)
-                {
-                    var index = Expression.Constant (i);
-                    Type paramType = paramsInfo[i].ParameterType;
+                var paramCastExp = Expression.Convert (paramAccessorExp, paramType);
 
-                    var paramAccessorExp = Expression.ArrayIndex (param, index);
-
-                    var paramCastExp = Expression.Convert (paramAccessorExp, paramType);
-
-                    argsExp[i] = paramCastExp;
-                }
-
-                //make a NewExpression that calls the
-                //ctor with the args we just created
-                var newExp = Expression.New (ctor, argsExp);
-
-                //create a lambda with the New
-                //Expression as body and our param object[] as arg
-                lambda = Expression.Lambda (typeof (InstanceFactory), newExp, param);
+                argsExp[i] = paramCastExp;
             }
-            else
-            {
-                lambda = Expression.Lambda (typeof (InstanceFactory), Expression.New (ctor));                
-            }
+
+            //make a NewExpression that calls the
+            //ctor with the args we just created
+            var newExp = Expression.New (ctor, argsExp);
+
+            //create a lambda with the New
+            //Expression as body and our param object[] as arg
+            lambda = Expression.Lambda (typeof (InstanceFactory), newExp, param);
+            
             //compile it
             var compiled = (InstanceFactory)lambda.Compile ();
             return compiled;
