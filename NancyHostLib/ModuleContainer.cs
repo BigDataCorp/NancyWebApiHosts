@@ -9,7 +9,7 @@ namespace NancyHostLib
 {
     public class ModuleContainer
     {
-        public delegate object InstanceFactory (params object[] args);
+        public delegate object InstanceFactory ();
 
         class ModuleInfo
         {
@@ -376,7 +376,10 @@ namespace NancyHostLib
         /// <returns></returns>
         private InstanceFactory CreateFactory (Type type)
         {
-            return CreateFactory (type.GetConstructors ().Where (i => i.GetParameters ().Length == 0).First ());
+            var ctor = type.GetConstructors ().Where (i => i.GetParameters ().Length == 0).FirstOrDefault ();
+            if (ctor == null)
+                throw new Exception (String.Format ("Type {0} must have a parameters less contructor!", type.FullName));
+            return CreateFactory (ctor);
         }
 
         /// <summary>
@@ -413,11 +416,11 @@ namespace NancyHostLib
 
             //make a NewExpression that calls the
             //ctor with the args we just created
-            var newExp = Expression.New (ctor, argsExp);
+            var newExp = paramsInfo.Length > 0 ? Expression.New (ctor, argsExp) : Expression.New (ctor);
 
             //create a lambda with the New
             //Expression as body and our param object[] as arg
-            lambda = Expression.Lambda (typeof (InstanceFactory), newExp, param);
+            lambda = paramsInfo.Length > 0 ? Expression.Lambda (typeof (InstanceFactory), newExp, param) : Expression.Lambda (typeof (InstanceFactory), newExp);
             
             //compile it
             var compiled = (InstanceFactory)lambda.Compile ();
