@@ -274,6 +274,44 @@ namespace NancyApiHost.Interfaces.SimpleHelpers
             return defaultValue;
         }
 
+        static char[] defaultDelimiter = new char[] { ',' };
+
+        /// <summary>
+        /// Get the option as an array of strings. If the key doen't exist, a zero length array is returned.
+        /// </summary>
+        /// <param name="key">The key, which is case insensitive.</param>
+        /// <remarks>
+        /// If the data is in between [], we will try to deserialize as json, else the string will be splited by the delimiters.
+        /// </remarks>
+        /// <returns>The data as string[].</returns>
+        public string[] GetAsList (string key)
+        {
+            return GetAsList (key, defaultDelimiter);
+        }
+
+        /// <summary>
+        /// Get the option as an array of strings. If the key doen't exist, a zero length array is returned.
+        /// </summary>
+        /// <param name="key">The key, which is case insensitive.</param>
+        /// <param name="delimiters">The delimiters.</param>
+        /// <remarks>
+        /// If the data is in between [], we will try to deserialize as json, else the string will be splited by the delimiters.
+        /// </remarks>
+        /// <returns>The data as string[].</returns>
+        public string[] GetAsList (string key, char[] delimiters)
+        {
+            var v = Get<string> (key, String.Empty);
+            // test javascript array
+            var v1 = v.Trim ();
+            if (v1.StartsWith ("[") && v1.EndsWith ("]"))
+            {
+                var r = Get<string[]> (key, null);
+                if (r != null)
+                    return r;
+            }
+            return v.Split (delimiters != null && delimiters.Length > 0 ? delimiters : defaultDelimiter, StringSplitOptions.None);
+        }
+
         /// <summary>
         /// Merge together FlexibleObjects instances, the last object in the list has priority in conflict resolution (overwrite).
         /// </summary>
