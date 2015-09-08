@@ -31,7 +31,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="BDCAccessControlClient, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\BDCAccessControlClient.2.4.5\lib\net45\BDCAccessControlClient.dll</HintPath>
+      <HintPath>..\packages\BDCAccessControlClient.2.4.6\lib\net45\BDCAccessControlClient.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Nancy, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
@@ -74,6 +74,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /E /Y /Q /r "$(TargetDir)*.dll" "$(SolutionDir)NancySelfHost\$(OutDir)\modules\BDCSecurityModule\"
+xcopy /E /Y /Q /r "$(TargetDir)*.dll" "$(SolutionDir)NancyASPHost\bin\modules\BDCSecurityModule\"</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

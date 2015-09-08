@@ -149,6 +149,8 @@ namespace NancyHostLib.SimpleHelpers
             fileTarget.FileName = logFileName;
             fileTarget.Layout = "${longdate}\t${callsite}\t${level}\t\"${message}${onexception: \t [Exception] ${exception:format=tostring}}\"";
             fileTarget.ConcurrentWrites = true;
+			fileTarget.ConcurrentWriteAttemptDelay = 10;
+            fileTarget.ConcurrentWriteAttempts = 8;
             fileTarget.AutoFlush = true;
             fileTarget.KeepFileOpen = true;
             fileTarget.DeleteOldFileOnStartup = false;
@@ -178,12 +180,12 @@ namespace NancyHostLib.SimpleHelpers
         {
             System.Threading.Thread.Sleep (0);
             // log error code and close log
-            Console.WriteLine ("ExitCode = " + exitCode.ToString ());
             if (exitCode == 0)
                 LogManager.GetCurrentClassLogger ().Info ("ExitCode " + exitCode.ToString ());
             else
                 LogManager.GetCurrentClassLogger ().Error ("ExitCode " + exitCode.ToString ());
             LogManager.Flush ();
+            System.Threading.Thread.Sleep (0);
             // force garbage collector run
             // usefull for clearing COM interfaces or any other similar resource
             GC.Collect ();
