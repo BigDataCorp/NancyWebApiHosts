@@ -143,6 +143,63 @@ If the console application should ask for user input at the end, before exiting 
 Default value: `false`
 
 
+### Authentication
+Alias for `EnableAuthentication`
+
+### PathsAnonimousAccess
+`PathsAnonimousAccess=<string>`
+
+Default value: ``
+
+List of paths that will be allowed access without authentication check (routes without authentication).
+
+If authentication is enabled (EnableAuthentication is `true`) and PathsAnonimousAccess has values, only the listed paths will not require authentication.
+
+If authentication is disabled (EnableAuthentication is `false`) this configuration will not be checked.
+
+**Notes:**
+1. the last `/` is not required 
+2. only full paths are supported
+
+Example using CSV:
+```
+--PathsAnonimousAccess "/login,/login/resetpassword,/path1/p2/p3"
+```
+
+Example using json array:
+```
+--PathsAnonimousAccess "[\"/login\", \"/logout\",\"/path1/p2/p3\"]"
+```
+
+
+### PathsAuthAccess
+`PathsAuthAccess=<string>`
+
+Default value: ``
+
+List of paths that will require user authentication to access.
+
+If authentication is enabled (EnableAuthentication is `true`) and PathsAuthAccess is empty all paths will require authentication with the exception of the paths in PathsAnonimousAccess.
+
+If authentication is enabled (EnableAuthentication is `true`) and PathsAuthAccess has values, only the listed paths will require authentication with the exception of the paths in PathsAnonimousAccess.
+
+If authentication is disabled (EnableAuthentication is `false`) this configuration will not be checked.
+
+**Notes:**
+1. the last `/` is not required 
+2. only full paths are supported
+
+Example using CSV:
+```
+--PathsAuthAccess "/secure/path,/othersecurepath"
+```
+
+Example using json array:
+```
+--PathsAuthAccess "[\"/secure/path\", \"/logout\",\"/path1/p2/p3\"]"
+```
+
+
 ### Module
 `module=<string>`
 

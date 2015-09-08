@@ -16,6 +16,8 @@ namespace NancyHostLib
         static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger ();
 
         static bool enableAuthentication = false;
+        static HashSet<string> pathsAnonimousAccess = null;
+        static HashSet<string> pathsAuthAccess = null;
 
         protected override void ConfigureConventions (Nancy.Conventions.NancyConventions nancyConventions)
         {
@@ -95,7 +97,12 @@ namespace NancyHostLib
             });
 
             // global authentication
-            enableAuthentication = SystemUtils.Options.Get ("EnableAuthentication", false);
+            enableAuthentication = SystemUtils.Options.Get ("EnableAuthentication", SystemUtils.Options.Get ("Authentication", false));
+            if (enableAuthentication)
+            {
+                pathsAnonimousAccess = new HashSet<string> (SystemUtils.Options.GetAsList ("PathsAnonimousAccess").Where (i => !String.IsNullOrWhiteSpace (i)).Select (i => PreparePathForAuthCheck (i.Trim ()).Trim ()), StringComparer.OrdinalIgnoreCase);
+                pathsAuthAccess = new HashSet<string> (SystemUtils.Options.GetAsList ("PathsAuthAccess").Where (i => !String.IsNullOrWhiteSpace (i)).Select (i => PreparePathForAuthCheck (i.Trim ()).Trim ()), StringComparer.OrdinalIgnoreCase);
+            }
             pipelines.BeforeRequest.AddItemToStartOfPipeline (AllResourcesAuthentication);
             accessControlContext = ModuleContainer.Instance.GetInstanceOf<IAccessControlModule> ();
             if (accessControlContext != null)
@@ -185,11 +192,7 @@ namespace NancyHostLib
             // if authenticated, go on...
             if (ctx.CurrentUser != null)
                 return null;
-
-            // if login module, go on... (here we can put other routes without authentication)
-            if (ctx.Request.Url.Path.IndexOf ("/login", StringComparison.OrdinalIgnoreCase) >= 0)
-                return null;
-
+            
             // search for a session id or token
             if (accessControlContext == null)
                 return null;
@@ -227,11 +230,42 @@ namespace NancyHostLib
                 }
             }
 
+            // check if we have an authenticated user
+            if (ctx.CurrentUser != null)
+                return null;
+
             // if authentication is disbled, go on...
             if (!enableAuthentication)
                 return null;
-            // analise if we got an authenticated user            
-            return (ctx.CurrentUser == null) ? new Nancy.Responses.HtmlResponse (HttpStatusCode.Unauthorized) : null;
+
+            // check allowed and secure paths.
+            var path = PreparePathForAuthCheck (ctx.Request.Url.Path);
+
+            // routes without authentication
+            if (pathsAnonimousAccess != null && pathsAnonimousAccess.Count > 0 && pathsAnonimousAccess.Contains (path))
+                return null;
+
+            // routes with required authentication
+            if (pathsAuthAccess != null && pathsAuthAccess.Count > 0)            
+                return pathsAuthAccess.Contains (path) ? new Nancy.Responses.HtmlResponse (HttpStatusCode.Unauthorized) : null;
+
+            return new Nancy.Responses.HtmlResponse (HttpStatusCode.Unauthorized);            
+        }
+ 
+        private string PreparePathForAuthCheck (string path)
+        {
+            path = path.TrimEnd ('/');
+            // keep the / for the base path only
+            if (path.Length == 0) path = "/";
+            // try to remove nancy format extension: .json, .xml
+            var p = path.LastIndexOf ('/');
+            if (p > 0)
+            {
+                var p1 = path.IndexOf ('.', p);
+                if (p1 > 0)
+                    path = path.Substring (0, p1);
+            }
+            return path;
         }
 
         #endregion
