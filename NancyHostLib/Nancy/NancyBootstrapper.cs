@@ -277,7 +277,6 @@ namespace NancyHostLib
         /// ***********************
         public class CustomJsonSerializer : JsonSerializer
         {
-            public static JsonSerializerSettings DefaultNewtonsoftJsonSettings;
             public CustomJsonSerializer ()
             {
                 Formatting = Formatting.None;

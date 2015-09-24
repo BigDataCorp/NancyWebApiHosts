@@ -32,30 +32,39 @@ namespace NancyHostLib
             _options = ConsoleUtils.Initialize (args, false);
             SystemGlobals.Options = _options;
 
-            // load modules
-            var folders = Options.Get ("modulesFolder", "").Split (',', ';', '|').Select (i => prepareFilePath (i))
-                                 .Concat (Options.Get ("modules", "").Split (',', ';', '|'))
-                                 .Concat (new string[] { "${basedir}/" })
-                                 .Where (i => !String.IsNullOrEmpty (i)).ToArray ();
+            // get modules paths
+            var folders = new HashSet<string> (
+                Options.Get ("modulesFolder", "").Split (',', ';', '|')
+                    .Concat (Options.Get ("modules", "").Split (',', ';', '|')).Where (i => !String.IsNullOrEmpty (i)).Select (i => prepareFilePath (i)).Where (i => System.IO.Directory.Exists (i)),
+                StringComparer.OrdinalIgnoreCase);
+            
+            // generate folders to be shadow copied
+            var shadowFolders = folders.SelectMany (f => System.IO.Directory.GetDirectories (f)).Select (f => f.Replace ("\\", "/")).ToList ();
+            
+            // add additional module paths
+            folders.Add (prepareFilePath ("${basedir}/"));
+            
+            // check if we also have the module argument
             try
             {
-                if (!String.IsNullOrWhiteSpace (Options.Get ("Module")))
+                var module = Options.Get ("Module");
+                if (!String.IsNullOrWhiteSpace (module))
                 {
-                    folders = folders.Concat (new string[] { System.IO.Path.GetDirectoryName (Options.Get ("Module")) + "/" }).ToArray ();                    
+                    module = System.IO.Path.GetDirectoryName (module) + "/";
+                    if (System.IO.Directory.Exists (module))
+                        folders.Add (module);
                 }
             }
             catch (Exception ex)
             {
                 LogError ("error parsing module: " + Options.Get ("Module"), ex);
-            }
+            }            
 
-            // adjust appdomain
+            // adjust appdomain shadow copy config
 #pragma warning disable 0618
-            AppDomain.CurrentDomain.SetupInformation.ShadowCopyFiles = "true";
-            AppDomain.CurrentDomain.SetShadowCopyPath (String.Join (";",
-                 AppDomain.CurrentDomain.BaseDirectory,
-                  AppDomain.CurrentDomain.BaseDirectory + "/bin",
-                  String.Join (";", folders.Select (i => ModuleContainer.PrepareFilePath (i).Item1))));
+            AppDomain.CurrentDomain.SetupInformation.ShadowCopyFiles = "true";            
+            var shadowCopyPath = ((AppDomain.CurrentDomain.SetupInformation.ShadowCopyDirectories ?? "") + ";" + String.Join (";", shadowFolders)).Trim (';');
+            AppDomain.CurrentDomain.SetShadowCopyPath (shadowCopyPath);
 #pragma warning restore 0618
 
             // load
