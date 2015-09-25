@@ -18,6 +18,7 @@ namespace NancyHostLib
         static bool enableAuthentication = false;
         static HashSet<string> pathsAnonimousAccess = null;
         static HashSet<string> pathsAuthAccess = null;
+        static bool debugMode = false;
 
         protected override void ConfigureConventions (Nancy.Conventions.NancyConventions nancyConventions)
         {
@@ -47,8 +48,9 @@ namespace NancyHostLib
             StaticConfiguration.CaseSensitive = false;            
             Nancy.Json.JsonSettings.MaxJsonLength = 20 * 1024 * 1024;
 
+            debugMode = SystemUtils.Options.Get ("debugMode", false);
             // check if the debugmode flag is enabled
-            if (!SystemUtils.Options.Get ("debugMode", false))
+            if (!debugMode)
             {
                 Nancy.Diagnostics.DiagnosticsHook.Disable (pipelines);
                 StaticConfiguration.DisableErrorTraces = true;

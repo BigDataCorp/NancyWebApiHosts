@@ -336,7 +336,7 @@ namespace NancyHostLib
 
             // split 
             var s = SplitByLastPathPart (path);
-            // check spli result
+            // check split result
             if (String.IsNullOrWhiteSpace (s.Item1))
                 return null;
             if (String.IsNullOrWhiteSpace (s.Item2))

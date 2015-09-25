@@ -43,7 +43,7 @@ namespace NancyASPHost
 
         protected void Application_End (object sender, EventArgs e)
         {
-
+            NancyHostLib.SystemUtils.Finalize ();
         }
     }
 }

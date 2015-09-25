@@ -30,8 +30,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Nancy, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Nancy.1.2.0\lib\net40\Nancy.dll</HintPath>
+    <Reference Include="Nancy, Version=1.3.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Nancy.1.3.0\lib\net40\Nancy.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -47,9 +47,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\NancyApiHost.Interfaces\NancyApiHost.Interfaces.csproj">
       <Project>{bb12935e-05c5-4f6b-b8dc-05cb859c399e}</Project>
       <Name>NancyApiHost.Interfaces</Name>
@@ -58,6 +55,9 @@
       <Project>{a51a1214-b6b2-49dd-9803-92339812f118}</Project>
       <Name>NancyApiHost.Security</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

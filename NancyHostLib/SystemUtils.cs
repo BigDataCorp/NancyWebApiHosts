@@ -39,10 +39,10 @@ namespace NancyHostLib
                 StringComparer.OrdinalIgnoreCase);
             
             // generate folders to be shadow copied
-            var shadowFolders = folders.SelectMany (f => System.IO.Directory.GetDirectories (f)).Select (f => f.Replace ("\\", "/")).ToList ();
+            var shadowFolders = folders.SelectMany (f => System.IO.Directory.GetDirectories (f).Select (n => n.Replace ("/", "\\"))).ToList ();
             
             // add additional module paths
-            folders.Add (prepareFilePath ("${basedir}/"));
+            folders.Add (prepareFilePath ("${basedir}"));
             
             // check if we also have the module argument
             try
@@ -50,9 +50,13 @@ namespace NancyHostLib
                 var module = Options.Get ("Module");
                 if (!String.IsNullOrWhiteSpace (module))
                 {
-                    module = System.IO.Path.GetDirectoryName (module) + "/";
+                    if (!System.IO.Directory.Exists (module))
+                        module = System.IO.Path.GetDirectoryName (module);
                     if (System.IO.Directory.Exists (module))
+                    {
                         folders.Add (module);
+                        shadowFolders.Add (module);
+                    }
                 }
             }
             catch (Exception ex)
@@ -60,12 +64,19 @@ namespace NancyHostLib
                 LogError ("error parsing module: " + Options.Get ("Module"), ex);
             }            
 
-            // adjust appdomain shadow copy config
+            // adjust appdomain shadow copy config (only for IIS asp.net hosting) 
+            try
+            {
 #pragma warning disable 0618
-            AppDomain.CurrentDomain.SetupInformation.ShadowCopyFiles = "true";            
-            var shadowCopyPath = ((AppDomain.CurrentDomain.SetupInformation.ShadowCopyDirectories ?? "") + ";" + String.Join (";", shadowFolders)).Trim (';');
-            AppDomain.CurrentDomain.SetShadowCopyPath (shadowCopyPath);
+                AppDomain.CurrentDomain.SetupInformation.ShadowCopyFiles = "true";            
+                var shadowCopyPath = ((AppDomain.CurrentDomain.SetupInformation.ShadowCopyDirectories ?? "") + ";" + String.Join (";", shadowFolders)).Trim (';');
+                AppDomain.CurrentDomain.SetShadowCopyPath (shadowCopyPath);
 #pragma warning restore 0618
+            }
+            catch (Exception ex)
+            {
+                LogError ("error setting shadow copy paths", ex);
+            }
 
             // load
             ModuleContainer.Instance.LoadModules (folders.ToArray ());
@@ -75,6 +86,10 @@ namespace NancyHostLib
             return Options;
         }
 
+        public static void Finalize ()
+        {
+            NLog.LogManager.Flush ();
+        }
 
         /// <summary>
         /// Adjust file path.

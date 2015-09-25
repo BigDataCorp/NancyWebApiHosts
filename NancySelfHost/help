@@ -1,0 +1,16 @@
+﻿##########################################
+List of Parameters
+
+	-h | -help : Display help information in console.
+	-logLevel : change the verbosity of log messages written to the logfile. Defaults to Info. Values = [Trace, Debug, Info, Warn, Error, Fatal]
+	-logFilename : name of the log file. Defaults to "${basedir}/log/aplication_name.log".
+	-config : Address to an external file with a json format configuration options. At service start up the file will be loaded and parsed. 
+	-waitForKeyBeforeExit : If the console application should ask for user input at the end, before exiting the application.
+	
+	-Authentication: true/false
+	-module: path for a module
+	-modules: path for modules folder
+	-modulesFolder: path for modules folder
+	-debugMode: true/false. Enable nancy request tracing and disable view caching to allow html page to be edited and tested. Userfull for testing.
+
+##########################################

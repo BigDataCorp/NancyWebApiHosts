@@ -277,7 +277,21 @@ namespace NancyApiHost.SimpleHelpers
         /// <returns>The data as string[].</returns>
         public string[] GetAsList (string key)
         {
-            return GetAsList (key, defaultDelimiter);
+            return GetAsList (key, defaultDelimiter, false);
+        }
+
+        /// <summary>
+        /// Get the option as an array of strings. If the key doen't exist, a zero length array is returned.
+        /// </summary>
+        /// <param name="key">The key, which is case insensitive.</param>
+        /// <param name="removeEmptyEntries">If to remove empty entries.</param>
+        /// <remarks>
+        /// If the data is in between [], we will try to deserialize as json, else the string will be splited by the delimiters.
+        /// </remarks>
+        /// <returns>The data as string[].</returns>
+        public string[] GetAsList (string key, bool removeEmptyEntries)
+        {
+            return GetAsList (key, defaultDelimiter, removeEmptyEntries);
         }
 
         /// <summary>
@@ -291,6 +305,21 @@ namespace NancyApiHost.SimpleHelpers
         /// <returns>The data as string[].</returns>
         public string[] GetAsList (string key, char[] delimiters)
         {
+            return GetAsList (key, delimiters, false);
+        }
+
+        /// <summary>
+        /// Get the option as an array of strings. If the key doen't exist, a zero length array is returned.
+        /// </summary>
+        /// <param name="key">The key, which is case insensitive.</param>
+        /// <param name="delimiters">The delimiters.</param>
+        /// <param name="removeEmptyEntries">If to remove empty entries.</param>
+        /// <remarks>
+        /// If the data is in between [], we will try to deserialize as json, else the string will be splited by the delimiters.
+        /// </remarks>
+        /// <returns>The data as string[].</returns>
+        public string[] GetAsList (string key, char[] delimiters, bool removeEmptyEntries = false)
+        {
             var v = Get<string> (key, String.Empty);
             // test javascript array
             var v1 = v.Trim ();
@@ -300,7 +329,7 @@ namespace NancyApiHost.SimpleHelpers
                 if (r != null)
                     return r;
             }
-            return v.Split (delimiters != null && delimiters.Length > 0 ? delimiters : defaultDelimiter, StringSplitOptions.None);
+            return v.Split (delimiters != null && delimiters.Length > 0 ? delimiters : defaultDelimiter, removeEmptyEntries ? StringSplitOptions.RemoveEmptyEntries : StringSplitOptions.None);
         }
 
         /// <summary>

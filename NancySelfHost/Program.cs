@@ -29,12 +29,15 @@ namespace NancySelfHost
 
                 // start execution
                 Execute ();
+
+                NancyHostLib.SystemUtils.Finalize ();
             }
             catch (Exception ex)
             {
                 LogManager.GetCurrentClassLogger ().Fatal (ex);
+                NancyHostLib.SystemUtils.Finalize ();
                 ConsoleUtils.CloseApplication (-50, false);
-            }
+            }            
 
             // set success exit code
             ConsoleUtils.CloseApplication (0, false);
@@ -42,6 +45,7 @@ namespace NancySelfHost
 
         private static void CurrentDomain_ProcessExit (object sender, EventArgs e)
         {
+            NancyHostLib.SystemUtils.Finalize ();
             if (System.Environment.ExitCode == -10)
                 ConsoleUtils.CloseApplication (0, false);
         }
@@ -73,7 +77,6 @@ namespace NancySelfHost
                 svr = new ServiceManager ();
                 svr.Start ();
             }
-
 
             // display program ending message
             if (isUserInteractive)
