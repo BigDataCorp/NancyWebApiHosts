@@ -24,6 +24,11 @@ namespace NancyHostLib
 
         public static FlexibleOptions Initialize (string[] args = null)
         {
+            return Initialize (false, args);
+        }
+
+        public static FlexibleOptions Initialize (bool useShadowCopy, string[] args = null)
+        {
             if (_initialized)
                 return Options;
             _initialized = true;
@@ -39,7 +44,9 @@ namespace NancyHostLib
                 StringComparer.OrdinalIgnoreCase);
             
             // generate folders to be shadow copied
-            var shadowFolders = folders.SelectMany (f => System.IO.Directory.GetDirectories (f).Select (n => n.Replace ("/", "\\"))).ToList ();
+            List<string> shadowFolders = null;
+            if (useShadowCopy)
+                shadowFolders = folders.SelectMany (f => System.IO.Directory.EnumerateFiles (f, "*.dll", System.IO.SearchOption.AllDirectories).Select (i => System.IO.Path.GetDirectoryName (i)).Distinct ()).ToList ();
             
             // add additional module paths
             folders.Add (prepareFilePath ("${basedir}"));
@@ -55,33 +62,36 @@ namespace NancyHostLib
                     if (System.IO.Directory.Exists (module))
                     {
                         folders.Add (module);
-                        shadowFolders.Add (module);
+                        if (useShadowCopy) shadowFolders.Add (module);
                     }
                 }
             }
             catch (Exception ex)
             {
-                LogError ("error parsing module: " + Options.Get ("Module"), ex);
+                GetLogger ().Error (ex, "error parsing module: " + Options.Get ("Module"));
             }            
 
             // adjust appdomain shadow copy config (only for IIS asp.net hosting) 
-            try
+            if (useShadowCopy)
             {
-#pragma warning disable 0618
-                AppDomain.CurrentDomain.SetupInformation.ShadowCopyFiles = "true";            
-                var shadowCopyPath = ((AppDomain.CurrentDomain.SetupInformation.ShadowCopyDirectories ?? "") + ";" + String.Join (";", shadowFolders)).Trim (';');
-                AppDomain.CurrentDomain.SetShadowCopyPath (shadowCopyPath);
-#pragma warning restore 0618
-            }
-            catch (Exception ex)
-            {
-                LogError ("error setting shadow copy paths", ex);
+                try
+                {
+                    #pragma warning disable 0618                
+                    var shadowCopyPath = ((AppDomain.CurrentDomain.SetupInformation.ShadowCopyDirectories ?? "") + ";" + String.Join (";", shadowFolders)).Trim (';');
+                    AppDomain.CurrentDomain.SetShadowCopyPath (shadowCopyPath);
+                    AppDomain.CurrentDomain.SetShadowCopyFiles ();
+                    #pragma warning restore 0618
+                }
+                catch (Exception ex)
+                {
+                    GetLogger ().Error (ex, "error setting shadow copy paths");
+                }
             }
 
             // load
             ModuleContainer.Instance.LoadModules (folders.ToArray ());
 
-            LogWarning ("Initialize", "StartUp");
+            GetLogger ().Info ("Initialize", "StartUp");
 
             return Options;
         }
@@ -112,57 +122,10 @@ namespace NancyHostLib
             return path;
         }
         
-        public static void LogInfo (string tag, string message)
+        public static NLog.Logger GetLogger ()
         {
-            NLog.LogManager.GetLogger (tag).Info (message);
-        }
-
-        public static void LogWarning (string tag, string message)
-        {
-            NLog.LogManager.GetLogger (tag).Warn (message);
-        }
-
-        public static void LogError (string tag, string message)
-        {
-            NLog.LogManager.GetLogger (tag).Error (message);
-        }
-
-        public static void LogError (string tag, Exception ex)
-        {
-            ex = ex.InnerException != null ? ex.InnerException : ex;
-            string msg;
-            if (ex.TargetSite != null)
-            {
-                msg = ex.TargetSite.DeclaringType.FullName;
-            }
-            else
-            {
-                var callingMethod = new System.Diagnostics.StackFrame (1).GetMethod ();
-                msg = callingMethod.DeclaringType.Name + "." + callingMethod.Name;
-            }
-            NLog.LogManager.GetLogger (tag).Error (ex, msg);
-        }
-
-        public static void LogError (Exception ex)
-        {
-            ex = ex.InnerException != null ? ex.InnerException : ex;
-            string msg;
-            if (ex.TargetSite != null)
-            {
-                msg = ex.TargetSite.DeclaringType.FullName;
-            }
-            else
-            {
-                var callingMethod = new System.Diagnostics.StackFrame (1).GetMethod ();
-                msg = callingMethod.DeclaringType.Name + "." + callingMethod.Name;
-            }
-            NLog.LogManager.GetCurrentClassLogger ().Error (ex, msg);
-        }
-
-        public static void LogDebug (string tag, string message)
-        {
-            NLog.LogManager.GetLogger (tag).Debug (message);
-        }
+            return NLog.LogManager.GetLogger ("NancyHost");
+        }        
 
         /// <summary>
         /// Gets the cookie sent by the browser or creates a new one (request cookie).

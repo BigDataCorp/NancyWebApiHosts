@@ -85,6 +85,16 @@ namespace NancyHostLib
             StaticConfiguration.Caching.EnableRuntimeViewUpdates = true;
 #endif
 
+            // in case there is a proxy using SSL routing request to nancy 
+            // https://github.com/NancyFx/Nancy/wiki/SSL-Behind-Proxy
+            if (SystemUtils.Options.Get ("SSLProxy", false))
+            {
+                Nancy.Security.SSLProxy.RewriteSchemeUsingForwardedHeaders(pipelines);
+            }
+
+            // https://github.com/NancyFx/Nancy/wiki/Model-binding
+            Nancy.ModelBinding.BindingConfig.Default.IgnoreErrors = true;
+
             // some additional response configuration
             pipelines.AfterRequest.AddItemToEndOfPipeline ((ctx) =>
             {

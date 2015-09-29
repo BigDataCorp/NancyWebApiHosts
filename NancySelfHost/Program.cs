@@ -81,7 +81,7 @@ namespace NancySelfHost
             // display program ending message
             if (isUserInteractive)
             {
-                ConsoleUtils.DisplayHeader ();
+                ConsoleUtils.DisplaySeparator ();
                 string line;
                 if (!useTopshelfService)
                 {
@@ -170,9 +170,10 @@ namespace NancySelfHost
                 
                 host.SetHelpTextPrefix ("\nService command line help text\n");
             });
+
             if (exitCode != 0)
             {
-                SystemUtils.LogError ("Service Error", "" + exitCode);
+                SystemUtils.GetLogger().Error ("Service Error. Exit code {0}.", exitCode);
             }
         }
     }
