@@ -14,14 +14,14 @@ namespace NancySelfHost
         // IMPORTANT: 
         // 1. should not contains spaces or other whitespace characters
         // 2. each service on the system must have a unique name.
-        public const string DefaultServiceName = "BigDataNancySelfHost";
+        public const string DefaultServiceName = "NancySelfHostService";
 
         // Display Name of the service in the services control manager.
         // NOTE: here the name can contains spaces or other whitespace characters
-        public const string DefaultServiceDisplayName = "BigData NancySelfHost";
+        public const string DefaultServiceDisplayName = "NancySelfHost Service";
 
         // Description of the service in the services control manager.
-        public const string DefaultServiceDescription = "BigData NancySelfHost service";
+        public const string DefaultServiceDescription = "NancySelfHost service";
 
         private Logger _logger = LogManager.GetLogger ("NancySelfHost");
         // private System.Threading.Timer _runningTask = null;

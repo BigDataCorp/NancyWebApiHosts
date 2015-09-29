@@ -38,18 +38,21 @@ namespace NancySelfHost
                 {
                     var l = listener as Microsoft.Owin.Host.HttpListener.OwinHttpListener;
                     if (l != null)
-                    {                        
-                        l.SetRequestQueueLimit (1000);
-                        l.SetRequestProcessingLimits (50000, 50000);
+                    {                   
+                        // default queue length is 1000 (Http.sys default), lets increase it!
+                        l.SetRequestQueueLimit (5000);                        
+                        // defaults to maxAccepts: 5 * Environment.ProcessorCount, maxRequests Int32.MaxValue
+                        l.SetRequestProcessingLimits (256 * Environment.ProcessorCount, Int32.MaxValue);
                     }
                 }
                 // reduce idle connection timeout, to increase the number of concurrent clients
                 if (app.Properties.TryGetValue ("System.Net.HttpListener", out listener))
                 {
+                    // http://blogs.msdn.com/b/tilovell/archive/2015/03/11/request-and-connection-throttling-when-self-hosting-with-owinhttplistener.aspx
                     var l = listener as System.Net.HttpListener;
                     if (l != null)
                     {
-                        //l.TimeoutManager.IdleConnection = TimeSpan.FromSeconds (5);
+                        l.TimeoutManager.IdleConnection = TimeSpan.FromSeconds (45);
                     }
                 }
 
@@ -123,8 +126,8 @@ namespace NancySelfHost
         {
             try
             {
-                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"BigDataPipeline port\" dir=in action=allow protocol=TCP localport=" + port).WaitForExit ();
-                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"BigDataPipeline port\" dir=out action=allow protocol=TCP localport=" + port).WaitForExit ();
+                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"NancySelfHost port\" dir=in action=allow protocol=TCP localport=" + port).WaitForExit ();
+                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"NancySelfHost port\" dir=out action=allow protocol=TCP localport=" + port).WaitForExit ();
             }
             catch
             {
