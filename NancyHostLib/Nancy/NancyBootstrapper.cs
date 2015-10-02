@@ -23,20 +23,14 @@ namespace NancyHostLib
         protected override void ConfigureConventions (Nancy.Conventions.NancyConventions nancyConventions)
         {
             // add resorce folders (where javascript, images, css etc. can be served)
-            nancyConventions.StaticContentsConventions.Add (Nancy.Conventions.StaticContentConventionBuilder.AddDirectory ("lib", @"lib"));
             nancyConventions.StaticContentsConventions.Add (Nancy.Conventions.StaticContentConventionBuilder.AddDirectory ("Content", @"Content"));
-            nancyConventions.StaticContentsConventions.Add (Nancy.Conventions.StaticContentConventionBuilder.AddDirectory ("fonts", @"fonts"));
             nancyConventions.StaticContentsConventions.Add (Nancy.Conventions.StaticContentConventionBuilder.AddDirectory ("Scripts", @"Scripts"));
             nancyConventions.StaticContentsConventions.Add (Nancy.Conventions.StaticContentConventionBuilder.AddDirectory ("images", @"images"));
 
             // add some default header Accept if empty (to provide a degault dynamic content negotiation rule)
             this.Conventions.AcceptHeaderCoercionConventions.Add ((acceptHeaders, ctx) =>
             {
-                if (!acceptHeaders.Any ())
-                {
-                    return DefaultEmptyHeader;
-                }
-                return acceptHeaders;
+                return acceptHeaders.Any () ? acceptHeaders : DefaultEmptyHeader;
             });
 
             base.ConfigureConventions (nancyConventions);
@@ -59,7 +53,8 @@ namespace NancyHostLib
                 // log any errors only as debug 
                 pipelines.OnError.AddItemToStartOfPipeline ((ctx, ex) =>
                 {
-                    logger.Debug (ex);
+                    if (logger.IsTraceEnabled)
+                        logger.Trace (ex);
                     return null;
                 });
             }
