@@ -48,6 +48,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IApplicationShutdown.cs" />
     <Compile Include="Nancy\DynamicModelBinder.cs" />
     <Compile Include="Nancy\FlexibleObjectBinder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

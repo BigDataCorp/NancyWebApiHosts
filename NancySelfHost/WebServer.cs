@@ -16,15 +16,14 @@ namespace NancySelfHost
         // https://github.com/NancyFx/DinnerParty/blob/master/src/
         // https://github.com/NancyFx/Nancy/tree/master/src/Nancy.Demo.Hosting.Aspnet
 
-        static IDisposable host = null;
-        static string address = null;
-        static int port = 0;
-
+        static IDisposable _host = null;
+        static string _address = null;
+        static int _port = 0;
         static NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger ();
 
         public static string Address
         {
-            get { return address; }
+            get { return _address; }
         }
 
         // OWIN startup
@@ -81,7 +80,7 @@ namespace NancySelfHost
             while (retry++ < maxTryCount && !TryToStart (portNumber, siteRootPath, virtualDirectoryPath, openFirewallExceptions))
             {
                 System.Threading.Thread.Sleep (1000 << retry);
-                NLog.LogManager.GetCurrentClassLogger ().Warn ("WebServer initialization try count {0}/{1}", retry, maxTryCount);
+                _logger.Warn ("WebServer initialization try count {0}/{1}", retry, maxTryCount);
             }
             _logger.Debug ("[done] Starting web server endpoint...");
             _logger.Info ("WebServer listening to " + Address);
@@ -92,7 +91,7 @@ namespace NancySelfHost
             string url = "";
             try
             {
-                if (host != null)
+                if (_host != null)
                     return true;
             
                 // site files root path
@@ -103,31 +102,31 @@ namespace NancySelfHost
                 virtualDirectoryPath = (virtualDirectoryPath ?? "").Replace ('\\', '/').Replace ("//", "/").Trim ().Trim ('/');
 
                 // adjust addresses
-                port = portNumber;
+                _port = portNumber;
                 url = "http://+:" + portNumber + "/" + virtualDirectoryPath;
-                address = url.Replace ("+", "localhost");
+                _address = url.Replace ("+", "localhost");
 
-                host = WebApp.Start<Startup> (new StartOptions (url) { ServerFactory = "Microsoft.Owin.Host.HttpListener" });
+                _host = WebApp.Start<Startup> (new StartOptions (url) { ServerFactory = "Microsoft.Owin.Host.HttpListener" });
 
                 if (openFirewallExceptions)
                     Task.Factory.StartNew (OpenFirewallPort);
             }
             catch (Exception ex)
-            {                
-                NLog.LogManager.GetCurrentClassLogger ().Error (ex);
+            {
+                _logger.Error (ex);
                 if (ex.InnerException != null && ex.InnerException.Message == "Access is denied")
-                    NLog.LogManager.GetCurrentClassLogger ().Warn ("Denied access to listen to address " + url + " . Use netsh to add user access permission.");
+                    _logger.Warn ("Denied access to listen to address " + url + " . Use netsh to add user access permission.");
                 Stop ();
             }
-            return host != null;
+            return _host != null;
         }
 
         private static void OpenFirewallPort ()
         {
             try
             {
-                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"NancySelfHost port\" dir=in action=allow protocol=TCP localport=" + port).WaitForExit ();
-                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"NancySelfHost port\" dir=out action=allow protocol=TCP localport=" + port).WaitForExit ();
+                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"NancySelfHost port\" dir=in action=allow protocol=TCP localport=" + _port).WaitForExit ();
+                System.Diagnostics.Process.Start ("netsh", "advfirewall firewall add rule name=\"NancySelfHost port\" dir=out action=allow protocol=TCP localport=" + _port).WaitForExit ();
             }
             catch
             {
@@ -175,20 +174,15 @@ namespace NancySelfHost
             uriParams.Add (new Uri (String.Format ("http://localhost:{0}/", port)));
             return uriParams.ToArray ();
         }
-  
-        private static void OnException (Exception ex)
-        {
-            NLog.LogManager.GetCurrentClassLogger ().Error (ex);
-        }
 
         public static void Stop ()
         {
-            if (host != null)
+            if (_host != null)
             {
                 try
                 {
-                    host.Dispose ();                    
-                    host = null;
+                    _host.Dispose ();                    
+                    _host = null;
                 } catch {}
                 System.Threading.Thread.Sleep (100);
             }

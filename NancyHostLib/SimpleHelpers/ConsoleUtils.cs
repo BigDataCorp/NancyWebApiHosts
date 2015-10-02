@@ -189,9 +189,9 @@ namespace NancyHostLib.SimpleHelpers
             fileTarget.AutoFlush = true;
             fileTarget.KeepFileOpen = true;
             fileTarget.DeleteOldFileOnStartup = false;
-            fileTarget.ArchiveAboveSize = 2 * 1024 * 1024;  // 2 Mb
+            fileTarget.ArchiveAboveSize = 4 * 1024 * 1024;  // 4 Mb
             fileTarget.MaxArchiveFiles = 10;
-            fileTarget.ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Date;
+            fileTarget.ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.DateAndSequence;
             fileTarget.ArchiveDateFormat = "yyyyMMdd_HHmmss";
 
             // set file output to be async (commented out since doesn't work on mono)

@@ -89,7 +89,8 @@ namespace NancyHostLib
             }
 
             // load
-            ModuleContainer.Instance.LoadModules (folders.ToArray ());
+            var types = new Type[] { typeof (NancyApiHost.Security.IAccessControlModule), typeof (NancyApiHost.Interfaces.IApplicationShutdown) };
+            ModuleContainer.Instance.LoadModules (folders.ToArray (), types);
 
             GetLogger ().Info ("Initialize", "StartUp");
 
@@ -98,8 +99,19 @@ namespace NancyHostLib
 
         public static void Finalize ()
         {
+            try
+            {
+                foreach (var instance in ModuleContainer.Instance.GetInstancesOf<NancyApiHost.Interfaces.IApplicationShutdown> ())
+                {
+                    instance.Finalize ();
+                }
+            }
+            catch (Exception ex)
+            {
+                GetLogger ().Error (ex);
+            }
             NLog.LogManager.Flush ();
-        }
+        }       
 
         /// <summary>
         /// Adjust file path.
