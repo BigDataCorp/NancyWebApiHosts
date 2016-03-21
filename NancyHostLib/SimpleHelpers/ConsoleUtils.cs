@@ -92,7 +92,7 @@ namespace NancyHostLib.SimpleHelpers
             if (!Console.IsOutputRedirected)
             {
                 ConsoleUtils.DisplayHeader (
-                    typeof(ConsoleUtils).Namespace.Replace(".SimpleHelpers", ""),
+                    typeof(ConsoleUtils).Namespace.Replace (".SimpleHelpers", ""),
                     "options: " + (ProgramOptions == null ? "none" : "\n#    " + String.Join ("\n#    ", ProgramOptions.Options.Select (i => i.Key + "=" + i.Value))));
             }
             else
@@ -145,24 +145,24 @@ namespace NancyHostLib.SimpleHelpers
 
             // default parameters initialization from config file
             if (String.IsNullOrEmpty (logFileName))
-                logFileName = System.Configuration.ConfigurationManager.AppSettings["logFilename"];
+                logFileName = _logFileName ?? System.Configuration.ConfigurationManager.AppSettings["logFilename"];
 			if (String.IsNullOrEmpty (logFileName))
-                logFileName = ("${basedir}/log/" + typeof (ConsoleUtils).Namespace.Replace(".SimpleHelpers", "") + ".log");
+                logFileName = ("${basedir}/log/" + typeof (ConsoleUtils).Namespace.Replace (".SimpleHelpers", "") + ".log");
             if (String.IsNullOrEmpty (logLevel))
-                logLevel = System.Configuration.ConfigurationManager.AppSettings["logLevel"] ?? "Info";
+                logLevel = _logLevel ?? (System.Configuration.ConfigurationManager.AppSettings["logLevel"] ?? "Info");
 
             // check if log was initialized with same options
-            if (_logFileName == logFileName && _logLevel == logLevel) 
+            if (_logFileName == logFileName && _logLevel == logLevel)
                 return;
-
-            // save current log configuration
-            _logFileName = logFileName;
-            _logLevel = logLevel;
 
             // try to parse loglevel
             LogLevel currentLogLevel;
             try { currentLogLevel = LogLevel.FromString (logLevel); }
             catch { currentLogLevel = LogLevel.Info; }
+
+            // save current log configuration
+            _logFileName = logFileName;
+            _logLevel = currentLogLevel.ToString ();
 
             // prepare log configuration
             var config = new NLog.Config.LoggingConfiguration ();
@@ -192,7 +192,8 @@ namespace NancyHostLib.SimpleHelpers
             fileTarget.ArchiveAboveSize = 4 * 1024 * 1024;  // 4 Mb
             fileTarget.MaxArchiveFiles = 10;
             fileTarget.ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.DateAndSequence;
-            fileTarget.ArchiveDateFormat = "yyyyMMdd_HHmmss";
+            fileTarget.ArchiveDateFormat = "yyyyMMdd";
+            fileTarget.ArchiveFileName = System.IO.Path.ChangeExtension (logFileName, ".{#}" + System.IO.Path.GetExtension (logFileName));
 
             // set file output to be async (commented out since doesn't work on mono)
             // var wrapper = new NLog.Targets.Wrappers.AsyncTargetWrapper (fileTarget);
@@ -207,7 +208,7 @@ namespace NancyHostLib.SimpleHelpers
             if (options != null && options.targets != null)
             {
                 foreach (var t in options.targets)
-                {                    
+                {
                     config.AddTarget (t);
                     config.LoggingRules.Add (new NLog.Config.LoggingRule ("*", currentLogLevel, t));
                 }
@@ -239,7 +240,7 @@ namespace NancyHostLib.SimpleHelpers
 
             // set exit code and exit
             System.Environment.ExitCode = exitCode;
-            if (exitApplication) 
+            if (exitApplication)
                 System.Environment.Exit (exitCode);
         }
 
@@ -342,9 +343,10 @@ namespace NancyHostLib.SimpleHelpers
                         argsOptions.Set (arg.Substring (0, p).Trim ().TrimStart ('-', '/'), arg.Substring (p + 1).Trim ());
                         lastTag = null;
                         openTag = false;
-                    }                    
+                    }
                     // search for tag stating with special character
-                    else if (hasStartingMarker)
+                    // a linux path should be valid: -path /home/file
+                    else if (hasStartingMarker && !(openTag && arg[0] == '/'))
                     {
                         lastTag = arg.Trim ().TrimStart ('-', '/');
                         argsOptions.Set (lastTag, "true");
@@ -355,7 +357,7 @@ namespace NancyHostLib.SimpleHelpers
                     {
                         argsOptions.Set (lastTag, arg.Trim ());
                         openTag = false;
-                    }                    
+                    }
                 }
             }
             return argsOptions;
@@ -375,35 +377,47 @@ namespace NancyHostLib.SimpleHelpers
 
         private static FlexibleOptions LoadWebConfigurationFile (string filePath, bool thrownOnError)
         {
-            using (WebClient client = new WebClient ())
+            // try to download configuration, retry in case of network failure
+            for (var i = 0; i < 3; i++)
             {
                 try
                 {
-                    return parseFile (client.DownloadString (filePath));
+                    using (WebClient client = new WebClient ())
+                    {
+                        return parseFile (client.DownloadString (filePath));
+                    }
                 }
                 catch (Exception ex)
                 {
-                    if (thrownOnError)
-                        throw;
-                    GetLogger ().Error (ex);
-                    return new FlexibleOptions ();
+                    if (i >= 2)
+                    {
+                        if (thrownOnError)
+                            throw;
+                        GetLogger ().Error (ex);
+                    }
+                    else
+                    {
+                        Task.Delay (150).Wait ();
+                    }
                 }
-            }            
+            }
+            
+            return new FlexibleOptions ();
         }
 
         private static FlexibleOptions LoadFileSystemConfigurationFile (string filePath, bool thrownOnError)
         {
-                try
-                {
-                	string text = ReadFileAllText (filePath);
-                	return parseFile (text);
-                }
-                catch (Exception ex)
-                {
-                    if (thrownOnError)
-                        throw;
-                    GetLogger ().Error (ex);
-                    return new FlexibleOptions ();
+            try
+            {
+            	string text = ReadFileAllText (filePath);
+            	return parseFile (text);
+            }
+            catch (Exception ex)
+            {
+                if (thrownOnError)
+                    throw;
+                GetLogger ().Error (ex);
+                return new FlexibleOptions ();
             }
         }
 
@@ -412,7 +426,7 @@ namespace NancyHostLib.SimpleHelpers
             var options = new FlexibleOptions ();
 
             // detect xml
-            if (content.TrimStart().StartsWith ("<"))
+            if (content.TrimStart ().StartsWith ("<"))
             {
                 var xmlDoc = System.Xml.Linq.XDocument.Parse (content);
                 var root = xmlDoc.Descendants ("config").FirstOrDefault ();
@@ -460,7 +474,7 @@ namespace NancyHostLib.SimpleHelpers
             // display message parameter
             if (isError)
             {
-                Console.Error.WriteLine (message);                
+                Console.Error.WriteLine (message);
             }
             else
             {
@@ -473,6 +487,8 @@ namespace NancyHostLib.SimpleHelpers
 
         public static string ReadFileAllText (string filename)
         {
+            if (!System.IO.File.Exists (filename))
+                return String.Empty;
             // enable file encoding detection
             var encoding = SimpleHelpers.FileEncoding.DetectFileEncoding (filename);
             // Load data based on parameters
@@ -481,6 +497,8 @@ namespace NancyHostLib.SimpleHelpers
 
         public static string[] ReadFileAllLines (string filename)
         {
+            if (!System.IO.File.Exists (filename))
+                return new string[0];
             // enable file encoding detection
             var encoding = SimpleHelpers.FileEncoding.DetectFileEncoding (filename);
             // Load data based on parameters
